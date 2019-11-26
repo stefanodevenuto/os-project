@@ -7,9 +7,17 @@
 #include <time.h>
 #include <string.h>
 
+#ifdef HARD
+	char path_num_g[11] ="SO_NUM_G=";
+    char *input_num_g = "4";
+#else
+    char path_num_g[11] ="SO_NUM_G=";
+    char *input_num_g = "2";
+#endif
+
 int main(int argc, char const *argv[]){
 	
-	char path_num_g[11] ="SO_NUM_G=";
+	/*char path_num_g[11] ="SO_NUM_G=";
     char *input_num_g = "2";
     putenv(strcat(path_num_g, input_num_g));
 
@@ -19,16 +27,16 @@ int main(int argc, char const *argv[]){
 
     char path_altezza[13] ="SO_ALTEZZA=";
     char *input_altezza = "5";
-    putenv(strcat(path_altezza, input_altezza));
+    putenv(strcat(path_altezza, input_altezza));*/
 
-    
+    putenv(strcat(path_num_g, input_num_g));
 
     int player_number;
     int chessboard_height;
     int chessboard_base;
 
     player_number = atol(getenv("SO_NUM_G"));
-    chessboard_base = atoi(getenv("SO_BASE"));
+    /*chessboard_base = atoi(getenv("SO_BASE"));
     chessboard_height = atoi(getenv("SO_ALTEZZA"));
 
     
@@ -63,8 +71,8 @@ int main(int argc, char const *argv[]){
 
     */
 
-    /*printf("%d\n", player_number);
-    printf("%d\n", chessboard_base);
+    printf("%d\n", player_number);
+    /*printf("%d\n", chessboard_base);
     printf("%d\n", chessboard_height);*/
     
 	return 0;
