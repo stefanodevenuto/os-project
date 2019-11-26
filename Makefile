@@ -5,10 +5,12 @@
 CFLAGS = -std=c89 -Wpedantic
 # target ovvero nome dell'eseguibile che si intende produrre
 TARGET = master
-ENV = enviroment.c
+TARGET_PLAYER = player
+ENV = enviroment.c semaphore.c
 # object files necessari per produrre l'eseguibile
-OBJ    = enviroment.o
+OBJ    = enviroment.o semaphore.o
 DEPS   = master.c
+PLAYER = player.c
 
 # Si sfrutta la regola implicita per la produzione dei file oggetto in
 # $(OBJ)
@@ -28,11 +30,13 @@ DEPS   = master.c
 hard:  $(DEPS) $(ENV)
 	rm -f *.o $(TARGET) *~
 	$(CC) $(CFLAGS) -D HARD -c $(ENV)
+	$(CC) $(CFLAGS) $(PLAYER) $(OBJ) -o $(TARGET_PLAYER)
 	$(CC) $(CFLAGS) $(DEPS) $(OBJ) -o $(TARGET)
 
 easy:  $(DEPS) $(ENV)
 	rm -f *.o $(TARGET) *~
-	$(CC) $(CFLAGS) -c $(ENV) 
+	$(CC) $(CFLAGS) -c $(ENV)
+	$(CC) $(CFLAGS) $(PLAYER) $(OBJ) -o $(TARGET_PLAYER)
 	$(CC) $(CFLAGS) $(DEPS) $(OBJ) -o $(TARGET)
 
 # solitamente il target "all" e` presente
