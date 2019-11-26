@@ -6,59 +6,132 @@
 #include <errno.h>
 #include <time.h>
 #include <string.h>
+#include "enviroment.h"
+#include "semaphore.h"
 
-#ifdef HARD
-	char path_num_g[11] ="SO_NUM_G=";
-    char *input_num_g = "4";
-#else
-    char path_num_g[11] ="SO_NUM_G=";
-    char *input_num_g = "2";
-#endif
+#define READY 0
+#define KEY 13579
 
 int main(int argc, char const *argv[]){
-	
-	/*char path_num_g[11] ="SO_NUM_G=";
-    char *input_num_g = "2";
-    putenv(strcat(path_num_g, input_num_g));
 
-    char path_base[10] ="SO_BASE=";
-	char *input_base = "3";
-    putenv(strcat(path_base, input_base));
-
-    char path_altezza[13] ="SO_ALTEZZA=";
-    char *input_altezza = "5";
-    putenv(strcat(path_altezza, input_altezza));*/
-
-    putenv(strcat(path_num_g, input_num_g));
 
     int player_number;
-    int chessboard_height;
+    int pawn_number;
+    int max_time;
     int chessboard_base;
+    int chessboard_height;
+    int min_flag;
+    int max_flag;
+    int total_flag_score;
+    int moves_number_of_pawns;
+    int chessboard_rows;
+    int chessboard_cols;
+    int processes_number;
+    int index_child;
+    char buffer[5];
+    char *chessboard;
+    int num_bytes;
 
-    player_number = atol(getenv("SO_NUM_G"));
-    /*chessboard_base = atoi(getenv("SO_BASE"));
-    chessboard_height = atoi(getenv("SO_ALTEZZA"));
+
+    /* Creating a pipe where ONLY THE MASTER WRITE*/
+    int pipe_master[2];
+
+	/* Creating a pipe where ONLY THE MASTER WRITE*/
+	int pipe_player[2];
+
+	pid_t select;
+
+	pipe(pipe_master);
+	pipe(pipe_player);
 
     
-    char *chessboard = (char *)malloc(chessboard_base * chessboard_height * sizeof(int));
-    //fprintf(stderr, "%d\n", errno );
 
-    int i = 0;
+    /*int semid;
+    char my_string[100];*/
 
-    int j = 0;
-    for(i=0;i<chessboard_base;i++){
-    	for(j=0;j<chessboard_height;j++){
-    		chessboard[ i * chessboard_height + j ] = '0';
+    /* Setting the enviroment variable */
+    set_env();
+
+    /* Unset the buffering of the streams stdout and stderr*/
+    setvbuf(stdout, NULL, _IONBF, 0);
+	setvbuf(stderr, NULL, _IONBF, 0);
+	
+	/* Get and parse of the set enviroment */
+    player_number = atol(getenv("SO_NUM_G"));
+    pawn_number = atol(getenv("SO_NUM_P"));
+    max_time = atol(getenv("SO_MAX_TIME"));
+    chessboard_base = atol(getenv("SO_BASE"));
+    chessboard_height = atol(getenv("SO_ALTEZZA"));
+    min_flag = atol(getenv("SO_FLAG_MIN"));
+    max_flag = atol(getenv("SO_FLAG_MAX"));
+    total_flag_score = atol(getenv("SO_ROUND_SCORE"));
+    moves_number_of_pawns = atol(getenv("SO_N_MOVES"));
+
+
+    /* Initialization of the chessboard*/
+    chessboard = (char *)malloc(chessboard_base * chessboard_height * sizeof(chessboard));
+
+	/* Creation of the Players*/
+    for (index_child = 0; index_child < player_number; index_child++){
+    	switch(fork()){
+    		case -1:
+    			fprintf(stderr, "Failed to Fork Players%s\n");
+    			exit(EXIT_FAILURE);
+    		case 0:
+    			/* CLOSE of WRITE in the MASTER PIPE,
+    			   because the player read on READ of pipe_master*/
+    			close(pipe_master[1]);
+    			/* CLOSE of READ in the PLAYER PIPE
+    			   because the player read on READ of pipe_master*/
+    			close(pipe_player[0]);
+    			
+    			
+    			buffer[0] = 'A';
+    			/* Sending of a READY message*/
+    			num_bytes =  write(pipe_player[1], buffer, sizeof(buffer));
+    			printf("Scrittura da PLAYER: %d\n",num_bytes );
+			
+				close(pipe_player[1]);
+				for (;;)
+				{
+					/* code */
+				}
     	}
     }
 
-    for(i=0;i<chessboard_base;i++){
-    	for(j=0;j<chessboard_height;j++){
-    		printf("%c\t", chessboard[ i * chessboard_height + j ]);
-    		
-    		
+    /* CLOSE of READ in the MASTER PIPE,
+       because the master read on READ of pipe_player*/
+    close(pipe_master[0]);
+    /* CLOSE of WRITE in the PLAYER PIPE,
+       because the master read on READ of pipe_player*/
+	close(pipe_player[1]);
+
+	printf("I'm waiting..\n");
+
+	/* Waiting of the Players Message to Sincronyze the Game*/
+	while(num_bytes = read(pipe_player[0], buffer, sizeof(buffer))){
+    	printf("Lettura da MASTER: %d\n", num_bytes);
+    	printf("%c\n", buffer[0]);
+    }
+
+    printf("Players Sinchronyzed\n");
+    
+    /* Wait the dead children*/
+    while((select = wait(NULL)) != -1) {
+		printf("Process %d\n", select);
+
+	}
+    
+    for(chessboard_cols=0;chessboard_cols<chessboard_base;chessboard_cols++){
+    	for(chessboard_rows=0;chessboard_rows<chessboard_height;chessboard_rows++){
+    		chessboard[ chessboard_cols * chessboard_height + chessboard_rows ] = '0';
     	}
-    	
+    }
+
+    for(chessboard_cols=0;chessboard_cols<chessboard_base;chessboard_cols++){
+    	for(chessboard_rows=0;chessboard_rows<chessboard_height;chessboard_rows++){
+    		printf("%c ", chessboard[ chessboard_cols * chessboard_height + chessboard_rows ]);
+    	}
     	printf("\n");
     }
 
@@ -71,9 +144,20 @@ int main(int argc, char const *argv[]){
 
     */
 
-    printf("%d\n", player_number);
+    /*printf("player number: %d\n", player_number);
+    printf("pawn number: %d\n", pawn_number);
+    printf("max time : %d\n", max_time);
+    printf("base: %d\n", chessboard_base);
+    printf("height : %d\n", chessboard_height);
+    printf("min flag : %d\n", min_flag);
+    printf("max flag : %d\n", max_flag);
+    printf("total falg score : %d\n", total_flag_score);
+    printf("moves number of pawns : %d\n", moves_number_of_pawns);
+    
     /*printf("%d\n", chessboard_base);
     printf("%d\n", chessboard_height);*/
-    
+
+    /* De-Allocate the chessboard*/
+    free(chessboard);
 	return 0;
 }

@@ -5,8 +5,9 @@
 CFLAGS = -std=c89 -Wpedantic
 # target ovvero nome dell'eseguibile che si intende produrre
 TARGET = master
+ENV = enviroment.c
 # object files necessari per produrre l'eseguibile
-#OBJ    = test-list.o
+OBJ    = enviroment.o
 DEPS   = master.c
 
 # Si sfrutta la regola implicita per la produzione dei file oggetto in
@@ -19,16 +20,20 @@ DEPS   = master.c
 #
 # equivale a scrivere
 #
-# application: matrix.o application.o
+# application: matrix.o application.ovvero
 #
 # ovvero a specificare che per produrre l'eseguibile "application"
 # servono i due object files "matrix.o" e "application.o"
 
-hard:  $(DEPS)
-	$(CC) -D HARD $(DEPS) $(LDFLAGS) -o $(TARGET)
+hard:  $(DEPS) $(ENV)
+	rm -f *.o $(TARGET) *~
+	$(CC) $(CFLAGS) -D HARD -c $(ENV)
+	$(CC) $(CFLAGS) $(DEPS) $(OBJ) -o $(TARGET)
 
-easy:  $(DEPS)
-	$(CC) $(DEPS) $(LDFLAGS) -o $(TARGET)
+easy:  $(DEPS) $(ENV)
+	rm -f *.o $(TARGET) *~
+	$(CC) $(CFLAGS) -c $(ENV) 
+	$(CC) $(CFLAGS) $(DEPS) $(OBJ) -o $(TARGET)
 
 # solitamente il target "all" e` presente
 
