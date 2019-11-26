@@ -7,6 +7,8 @@
 #include <time.h>
 #include <string.h>
 
+
+
 #ifdef HARD
     char path_num_g[11] ="SO_NUM_G=";
     char *input_num_g = "4";
@@ -48,6 +50,7 @@
 #endif
 
 void set_env(){
+
     putenv(strcat(path_num_g, input_num_g));
     putenv(strcat(path_num_p, input_num_p));
     putenv(strcat(path_max_time, input_max_time));
@@ -57,4 +60,22 @@ void set_env(){
     putenv(strcat(path_flag_max, input_flag_max));
     putenv(strcat(path_round_score, input_round_score));
     putenv(strcat(path_n_moves, input_n_moves));
+
+}
+
+int * get_env(){
+
+    int * array = malloc(9 * sizeof(array));
+
+    array[0] = atol(getenv("SO_NUM_G"));
+    array[1] = atol(getenv("SO_NUM_P"));
+    array[2] = atol(getenv("SO_MAX_TIME"));
+    array[3] = atol(getenv("SO_BASE"));
+    array[4] = atol(getenv("SO_ALTEZZA"));
+    array[5] = atol(getenv("SO_FLAG_MIN"));
+    array[6] = atol(getenv("SO_FLAG_MAX"));
+    array[7] = atol(getenv("SO_ROUND_SCORE"));
+    array[8] = atol(getenv("SO_N_MOVES"));
+
+    return array;
 }

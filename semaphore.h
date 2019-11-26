@@ -6,6 +6,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define KEY 13579
+#define READY 0
+
 
 /*
  * The following union must be defined as required by the semctl man
@@ -44,7 +47,21 @@ int sem_set_val(int sem_id, int sem_num, int sem_val);
  *   process is blocked until the resource becomes available again
  * - the returned value is the same as the invoked semop
  */
-int sem_reserve(int sem_id, int sem_num);
+int sem_reserve_1(int sem_id, int sem_num);
+
+/*
+ * Try to access the resource
+ * INPUT:
+ * - sem_id: the ID of the semaphore IPC object
+ * - sem_num: the position of the semaphore in the array
+ * RESULT
+ * - if the resource is available (semaphore value == 0), the waiting
+ *   process go
+ * - if the resource is not available (semaphore value > 0), the
+ *   process is blocked until the resource becomes available again
+ * - the returned value is the same as the invoked semop
+ */
+int sem_reserve_0(int sem_id, int sem_num);
 
 /*
  * Release the resource
