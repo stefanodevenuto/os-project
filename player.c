@@ -40,16 +40,16 @@ int main(){
 		}
 	}
 
-
-	if(sem_id = semget(KEY, 1, 0666) == -1){
+	if(sem_id = semget(KEY_SEM_MASTER_WAIT_PLRS, 1, 0666) == -1){
 		if(errno == ENOENT)
 			fprintf(stderr, "Semaphore doesn't exist\n");
 		exit(EXIT_FAILURE);
 	}
 
+	printf("Semaphore READY_ENTRY value: %d\n",semctl(sem_id, READY_ENTRY, GETVAL));
 
-    sem_reserve_1(sem_id, READY);
-    printf("Semaphore READY value: %d\n",semctl(sem_id, READY, GETVAL));
+    sem_reserve_1(sem_id, READY_ENTRY);
+    printf("Semaphore READY_ENTRY value DOPO: %d\n",semctl(sem_id, READY_ENTRY, GETVAL));
 
     while((select = wait(NULL)) != -1);
 

@@ -6,8 +6,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define KEY 13579
-#define READY 0
+#define KEY_SEM_MASTER_WAIT_PLRS 13579
+#define READY_ENTRY 0
 
 
 /*

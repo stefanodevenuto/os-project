@@ -17,6 +17,12 @@
 #define SO_ROUND_SCORE 7
 #define SO_N_MOVES 8
 
+#ifdef HARD
+	#define MEM_KEY 12346
+#else
+	#define MEM_KEY 12345
+#endif
+
 void set_env();
 
 int * get_env();
