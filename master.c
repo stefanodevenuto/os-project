@@ -10,6 +10,7 @@
 #include <sys/shm.h>
 #include "enviroment.h"
 #include "semaphore.h"
+#include "chessboard.h"
 
 int main(int argc, char const *argv[]){
 
@@ -21,19 +22,25 @@ int main(int argc, char const *argv[]){
     /*char buffer[2];*/
     
     int num_bytes;
+    int parameters_id;
     int * parameters;
-    int sem_id;
+
 
 	pid_t select;
 	int rows;
   	int columns;
 
 	char * chessboard;
-	int segid;
+
 
 	int i,j;
 
 	char y;
+
+    int chessboard_mem_id;
+    int chessboard_sem_id;
+
+    int master_sem_id;
 	
     /*int semid;
     char my_string[100];*/
@@ -46,37 +53,24 @@ int main(int argc, char const *argv[]){
 	setvbuf(stderr, NULL, _IONBF, 0);
 	
 	/* Get and parse of the set enviroment */
-	set_env();
-    parameters = get_env();
+	
+    parameters_id = shmget(PARAMETERS_MEM_KEY,10, 0666 | IPC_CREAT);
+    parameters = shmat(parameters_id,NULL,0);
 
-    rows= parameters[SO_ALTEZZA];
-  	columns= parameters[SO_BASE];
+    parameters[0] = NUM_G;
+    parameters[1] = NUM_P;
+    parameters[2] = MAX_TIME;
+    parameters[3] = BASE;
+    parameters[4] = ALTEZZA;
+    parameters[5] = FLAG_MIN;
+    parameters[6] = FLAG_MAX;
+    parameters[7] = ROUND_SCORE;
+    parameters[8] = N_MOVES;
+    parameters[9] = MIN_HOLD_NSEC;
 
-  	printf("%d\n", parameters[SO_NUM_G]);
-
-  	segid=shmget(MEM_KEY,sizeof(char) * rows * columns, 0666 | IPC_CREAT);
-  	
-    fprintf(stderr, "%d%s\n",errno, strerror(errno) );
-
-    chessboard = (char *)shmat(segid,NULL,0);
-    fprintf(stderr, "%d%s\n",errno, strerror(errno) );
-
+    set_mem_chessboard();
+    /*print_chessboard();*/
     
-    y = '.';
-    for (i = 0; i < rows; i++){
-    	for (j = 0; j < columns; j++){
-	    	
-	        chessboard[i*columns + j] = y;
-    	}
-  	}
-
-
-  	for(i=0;i<rows;i++){
-  		for(j=0;j<columns;j++){
-      		printf("%d ",chessboard[i*columns+j]);
-    	}
-    	printf("\n");
-  	}
 
 
     printf("player number: %d\n", parameters[SO_NUM_G]);
@@ -98,12 +92,15 @@ int main(int argc, char const *argv[]){
 
     /*printf("parameters[SO_NUM_G]: %d\n", parameters[SO_NUM_G]);*/
     
-    sem_id = semget(KEY_SEM_MASTER_WAIT_PLRS, 1, 0666 | IPC_CREAT);
-    sem_set_val(sem_id, READY_ENTRY, parameters[SO_NUM_G]);
+    master_sem_id = semget(KEY_SEM_MASTER_WAIT_PLRS, 1, 0666 | IPC_CREAT);
+    
+    sem_set_val(master_sem_id, READY_ENTRY, parameters[SO_NUM_G]);
+    
 
     /*printf("Ready PADRE: %d\n",semctl(sem_id, READY_ENTRY, GETVAL));*/
     printf("Waiting on KEY: %d...\n", KEY_SEM_MASTER_WAIT_PLRS);
-    sem_reserve_0(sem_id, READY_ENTRY);
+
+    sem_reserve_0(master_sem_id, 0);
     /*printf("Ready PADRE: %d\n",semctl(sem_id, READY_ENTRY, GETVAL));*/
     fprintf(stdout,"Player Synchronized\n");
     
@@ -135,6 +132,5 @@ int main(int argc, char const *argv[]){
 
     /* De-Allocate the chessboard */
     
-    free(parameters);
 	return 0;
 }

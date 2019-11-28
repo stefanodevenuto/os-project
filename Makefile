@@ -7,8 +7,9 @@ hard: master.c semaphore.c enviroment.c
 easy: master.c semaphore.c enviroment.c
 	gcc -c semaphore.c
 	gcc -c enviroment.c
-	gcc master.c semaphore.o enviroment.o -o master
-	gcc player.c semaphore.o enviroment.o -o player
+	gcc -c chessboard.c semaphore.o
+	gcc master.c semaphore.o enviroment.o chessboard.o -o master
+	gcc player.c semaphore.o enviroment.o chessboard.o -o player
 
 all: easy
 

@@ -6,20 +6,25 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define KEY_SEM_MASTER_WAIT_PLRS 13579
+#define KEY_SEM_MASTER_WAIT_PLRS 55555
+#define CHESSBOARD_MEM_KEY 44444
+#define CHESSBOARD_SEM_KEY 33333
+#define PARAMETERS_MEM_KEY 22222
 #define READY_ENTRY 0
+/*#define POS(row,column) ((row)*(COLUMNS)+(column))*/
 
 
 /*
  * The following union must be defined as required by the semctl man
  * page
  */
+/*
 union semun {
-	int              val;    /* Value for SETVAL */
-	struct semid_ds *buf;    /* Buffer for IPC_STAT, IPC_SET */
-	unsigned short  *array;  /* Array for GETALL, SETALL */
-	struct seminfo  *__buf;  /* Buffer for IPC_INFO
-				    (Linux-specific) */
+	int              val;    
+	struct semid_ds *buf;    
+	unsigned short  *array;  
+	struct seminfo  *__buf;  
+				    
 };
 
 
@@ -79,4 +84,3 @@ int sem_release(int sem_id, int sem_num);
  * Print all semaphore values to a string. my_string MUST be
  * previously allocated
  */
-int sem_getall(char * my_string, int sem_id);
