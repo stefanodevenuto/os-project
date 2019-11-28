@@ -60,7 +60,7 @@ void set_env(){
     putenv(strcat(path_flag_max, input_flag_max));
     putenv(strcat(path_round_score, input_round_score));
     putenv(strcat(path_n_moves, input_n_moves));
-
+    
 }
 
 int * get_env(){

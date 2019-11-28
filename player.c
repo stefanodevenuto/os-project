@@ -19,13 +19,13 @@ int main(){
 	
 	int sem_id;
 	pid_t select;
+
+	int master_sem_id;
+	int a;
 	
 	setvbuf(stdout, NULL, _IONBF, 0);
 	setvbuf(stderr, NULL, _IONBF, 0);
 
-	set_env();
-    parameters = get_env();
-	
 	for (i = 0; i < 3; ++i){
 		switch(fork()){
 		case -1:
@@ -40,21 +40,22 @@ int main(){
 		}
 	}
 
-
-	if(sem_id = semget(KEY, 1, 0666) == -1){
+	if((master_sem_id = semget(KEY_SEM_MASTER_WAIT_PLRS, 1, 0666)) == -1){
 		if(errno == ENOENT)
 			fprintf(stderr, "Semaphore doesn't exist\n");
 		exit(EXIT_FAILURE);
 	}
+	printf("Semaphore READY_ENTRY value: %d\n",semctl(master_sem_id, READY_ENTRY, GETVAL));
 
+    sem_reserve_1(master_sem_id, 0);
+    /*fprintf(stderr, "a: %d, %d%s\n", a, errno, strerror(errno));*/
+        
 
-    sem_reserve_1(sem_id, READY);
-    printf("Semaphore READY value: %d\n",semctl(sem_id, READY, GETVAL));
+    printf("Semaphore READY_ENTRY value DOPO: %d\n",semctl(master_sem_id, READY_ENTRY, GETVAL));
 
     while((select = wait(NULL)) != -1);
 
     /*printf("Risorsa liberata %d\n", getpid());*/
-    free(parameters);
     
 	return 0;
 }
