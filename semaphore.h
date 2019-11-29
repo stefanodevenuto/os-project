@@ -7,10 +7,25 @@
 #include <stdlib.h>
 
 #define KEY_SEM_MASTER_WAIT_PLRS 55555
+#define KEY_SEM_PLR_1_WAIT_PWNS 91827
+#define KEY_SEM_PLR_2_WAIT_PWNS 91826
 #define CHESSBOARD_MEM_KEY 44444
 #define CHESSBOARD_SEM_KEY 33333
 #define PARAMETERS_MEM_KEY 22222
 #define READY_ENTRY 0
+
+struct param{
+    int SO_NUM_G;
+    int SO_NUM_P;
+    int SO_MAX_TIME;
+    int SO_BASE;
+    int SO_ALTEZZA;
+    int SO_FLAG_MIN;
+    int SO_FLAG_MAX;
+    int SO_ROUND_SCORE;
+    int SO_N_MOVES;
+    int SO_MIN_HOLD_NSEC;
+};
 /*#define POS(row,column) ((row)*(COLUMNS)+(column))*/
 
 

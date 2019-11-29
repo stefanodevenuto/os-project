@@ -1,17 +1,8 @@
-hard: master.c semaphore.c enviroment.c
-	gcc -D HARD -c semaphore.c
-	gcc -D HARD -c enviroment.c
-	gcc -D HARD master.c semaphore.o enviroment.o -o master
-	gcc -D HARD player.c semaphore.o enviroment.o -o player
-
-easy: master.c semaphore.c enviroment.c
+all:
 	gcc -c semaphore.c
-	gcc -c enviroment.c
-	gcc -c chessboard.c semaphore.o
-	gcc master.c semaphore.o enviroment.o chessboard.o -o master
-	gcc player.c semaphore.o enviroment.o chessboard.o -o player
-
-all: easy
+	gcc master.c semaphore.o -o master
+	gcc player.c semaphore.o -o player
+	gcc pawn.c semaphore.o -o pawn
 
 clean:
 	rm -f *.o $(TARGET) *~
