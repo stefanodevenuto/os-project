@@ -13,6 +13,8 @@
 #define CHESSBOARD_SEM_KEY 33333
 #define PARAMETERS_MEM_KEY 22222
 #define READY_ENTRY 0
+#define LEN_X_Y 8
+
 
 struct param{
     int SO_NUM_G;
@@ -25,6 +27,13 @@ struct param{
     int SO_ROUND_SCORE;
     int SO_N_MOVES;
     int SO_MIN_HOLD_NSEC;
+};
+
+struct message{
+	long mtype;
+	int x;
+	int y;
+	/*char * strategy;*/
 };
 /*#define POS(row,column) ((row)*(COLUMNS)+(column))*/
 

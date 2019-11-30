@@ -148,29 +148,6 @@ int main(int argc, char const *argv[]){
     while((select = wait(NULL)) != -1);
 		/*printf("Process %d\n", select);*/
 
-	
-    /*
-
-
-    Create Shared chessboard
-
-
-    */
-
-    /*printf("player number: %d\n", parameters[SO_NUM_G]);
-    printf("pawn number: %d\n", parameters[SO_NUM_P]);
-    printf("max time : %d\n", parameters[SO_MAX_TIME]);
-    printf("base: %d\n", parameters[SO_BASE]);
-    printf("height : %d\n", parameters[SO_ALTEZZA]);
-    printf("min flag : %d\n", parameters[SO_FLAG_MIN]);
-    printf("max flag : %d\n", parameters[SO_FLAG_MAX]);
-    printf("total falg score : %d\n", parameters[SO_ROUND_SCORE]);
-    printf("moves number of pawns : %d\n", parameters[SO_N_MOVES]);
-    
-    /*printf("%d\n", chessboard_base);
-    printf("%d\n", chessboard_height);*/
-
-    /* De-Allocate the chessboard */
     
 	return 0;
 }
