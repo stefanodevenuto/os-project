@@ -41,7 +41,7 @@ int main(int argc, char *argv[]){
 		fprintf(stderr, "MSGRCV: ret: %d, errno: %d, %s\n", a, errno, strerror(errno));
 	}
 
-	printf("TYPE: %d,\tX: %d, Y: %d\n",type, message_to_pawn.x, message_to_pawn.y );
+	
 
     
 	if((chessboard_mem_id = shmget(CHESSBOARD_MEM_KEY,sizeof(int) * parameters->SO_ALTEZZA * parameters->SO_BASE, 0666)) == -1){
@@ -52,11 +52,14 @@ int main(int argc, char *argv[]){
 
     chessboard = shmat(chessboard_mem_id,NULL,0);
 
+    
+   
     chessboard[message_to_pawn.y * parameters->SO_BASE + message_to_pawn.x] = player_letter;
-    printf("Player letter: %d\n", player_letter);
+    
+   
 
-    chessboard_sem_id = semget(CHESSBOARD_SEM_KEY, parameters->SO_ALTEZZA * parameters->SO_BASE, 0666 | IPC_CREAT);
-    fprintf(stderr, "ret: %d, errno: %d, %s\n", errno, strerror(errno) );
+    chessboard_sem_id = semget(CHESSBOARD_SEM_KEY, parameters->SO_ALTEZZA * parameters->SO_BASE, 0666);
+    
     semctl(chessboard_sem_id, message_to_pawn.y * parameters->SO_BASE + message_to_pawn.x, SETVAL, 0);
 
 	printf("Pawn SBLOCCA\n");

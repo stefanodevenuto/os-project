@@ -91,7 +91,7 @@ int main(int argc, char const *argv[]){
     for(i=0; i<rows; i++){
         for(j=0; j<columns; j++){
             chessboard[i * parameters->SO_BASE + i] = 0;
-            semctl(chessboard_sem_id, i * parameters->SO_BASE + i, SETVAL, 1);
+            semctl(chessboard_sem_id, i * parameters->SO_BASE + j, SETVAL, 1);
         }
     }
 
@@ -120,9 +120,11 @@ int main(int argc, char const *argv[]){
 
     /*printf("parameters[SO_NUM_G]: %d\n", parameters[SO_NUM_G]);*/
     
-    master_sem_id = semget(KEY_SEM_MASTER_WAIT_PLRS, 1, 0666 | IPC_CREAT);
+    master_sem_id = semget(KEY_SEM_MASTER_WAIT_PLRS, 2, 0666 | IPC_CREAT);
     
     sem_set_val(master_sem_id, READY_ENTRY, parameters->SO_NUM_G);
+
+    sem_set_val(master_sem_id, TURN_ENTRY, 1);
     
 
     /*printf("Ready PADRE: %d\n",semctl(sem_id, READY_ENTRY, GETVAL));*/
@@ -134,13 +136,15 @@ int main(int argc, char const *argv[]){
 
     printf("Values:\n");
     for(i=0; i<rows; i++){
+        
         for(j=0; j<columns; j++){
+            
             if(chessboard[i * parameters->SO_BASE + j] < 0){
-                printf("%c ", -(chessboard[i * parameters->SO_BASE + j]));
+                printf(" %c", -(chessboard[i * parameters->SO_BASE + j]));
             }else if(chessboard[i * parameters->SO_BASE + j] > 0){
-                printf("%d ", chessboard[i * parameters->SO_BASE + j]);
+                printf(" %d", chessboard[i * parameters->SO_BASE + j]);
             }else{
-                printf("_");
+                printf(" _");
             }
         }
         printf("\n");

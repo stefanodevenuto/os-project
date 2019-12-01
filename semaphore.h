@@ -13,6 +13,7 @@
 #define CHESSBOARD_SEM_KEY 33334
 #define PARAMETERS_MEM_KEY 22223
 #define READY_ENTRY 0
+#define TURN_ENTRY 1
 #define LEN_X_Y 8
 
 

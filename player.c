@@ -33,6 +33,8 @@ int main(int argc, char *argv[]){
 	char sprintf_type[40];
 	int player_type;
 
+	int turn_semaphore;
+
 
 	int a;
 
@@ -51,6 +53,9 @@ int main(int argc, char *argv[]){
 	
 	parameters = shmat(parameters_id,NULL,0);
 
+	turn_semaphore = semget(KEY_SEM_MASTER_WAIT_PLRS, 2, 0666 | IPC_CREAT);
+    
+
 	
     sprintf (sprintf_parameters_id, "%d", parameters_id);
 
@@ -66,6 +71,8 @@ int main(int argc, char *argv[]){
 	setvbuf(stderr, NULL, _IONBF, 0);
 
 	/*SETTING OF THE WAIT FOR 0 SEMAPHORE FOR EVERY PAWN FOR EVERY PLAYER*/
+
+	sem_reserve_1(master_sem_id, 0);
 	
 	if((player_sem_id = semget(getpid(), 1, 0666 | IPC_CREAT)) == -1){
 		if(errno == ENOENT)
@@ -80,12 +87,13 @@ int main(int argc, char *argv[]){
 
     /* SEZIONE CRITICA GIOCATORI*/
     /*-----------------------------------------------------------------------------------------*/
+    sem_reserve_1(turn_semaphore, TURN_ENTRY);
     switch(player_type){
     	case 65: /* A */
     		for(i = 0; i < parameters->SO_NUM_P; i++){
 		    	message_to_pawn.mtype = i+1;
-			    message_to_pawn.x = i;
-			    message_to_pawn.y = 0;
+			    message_to_pawn.y = i;
+			    message_to_pawn.x = 0;
 			    /*message_to_pawn.strategy = "NSWEEWSN"*/
 
 			    a = msgsnd(player_msg_id, &message_to_pawn, sizeof(int) * 2, 0);
@@ -102,8 +110,8 @@ int main(int argc, char *argv[]){
     	case 66: /* B */
     		for(i = 0; i < parameters->SO_NUM_P; i++){
 		    	message_to_pawn.mtype = i+1;
-			    message_to_pawn.x = i;
-			    message_to_pawn.y = parameters->SO_BASE-1;
+			    message_to_pawn.y = i;
+			    message_to_pawn.x = parameters->SO_BASE-1;
 			    /*message_to_pawn.strategy = "NSWEEWSN"*/
 
 			    a = msgsnd(player_msg_id, &message_to_pawn, sizeof(int) * 2, 0);
@@ -121,8 +129,8 @@ int main(int argc, char *argv[]){
     	case 67: /* C */
     		for(i = 1; i <= parameters->SO_NUM_P; i++){
 		    	message_to_pawn.mtype = i;
-			    message_to_pawn.x = i;
 			    message_to_pawn.y = i;
+			    message_to_pawn.x = i;
 			    /*message_to_pawn.strategy = "NSWEEWSN"*/
 
 			    a = msgsnd(player_msg_id, &message_to_pawn, sizeof(int) * 2, 0);
@@ -138,8 +146,8 @@ int main(int argc, char *argv[]){
     	case 68: /* D */
     		for(i = 1; i <= parameters->SO_NUM_P; i++){
 		    	message_to_pawn.mtype = i;
-			    message_to_pawn.x = i;
 			    message_to_pawn.y = i;
+			    message_to_pawn.x = i;
 			    /*message_to_pawn.strategy = "NSWEEWSN"*/
 
 			    a = msgsnd(player_msg_id, &message_to_pawn, sizeof(int) * 2, 0);
@@ -158,6 +166,10 @@ int main(int argc, char *argv[]){
     	break;
 
     }
+    printf("FINITO PLAYER %c\n", player_type);
+    sleep(3);
+
+    sem_release(turn_semaphore, TURN_ENTRY);
 
     /*-----------------------------------------------------------------------------------------*/
 
@@ -197,7 +209,7 @@ int main(int argc, char *argv[]){
     sem_reserve_0(player_sem_id, 0);
     printf("Player SINCRONIZZATO\n");
 
-    sleep(3);
+    
     sem_reserve_1(master_sem_id, 0);
     /*fprintf(stderr, "a: %d, %d%s\n", a, errno, strerror(errno));*/
         
