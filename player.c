@@ -31,19 +31,27 @@ int main(int argc, char *argv[]){
 
 	int player_msg_id;
 	char sprintf_type[40];
+	int player_type;
+
 
 	int a;
 
-	char * args[4]; 
+	char * args[5]; 
 
 	struct message message_to_pawn;
 
+	char sprintf_parameters_id[40];
+	char sprintf_letter[40];
+
 	parameters_id = atoi(argv[1]);
+	player_type = atoi(argv[2]);
+
+	/*printf("Player Tipe: %d, in char: %c\n", player_type,player_type);*/
 	
 	
 	parameters = shmat(parameters_id,NULL,0);
 
-	char sprintf_parameters_id[40];
+	
     sprintf (sprintf_parameters_id, "%d", parameters_id);
 
     
@@ -51,9 +59,8 @@ int main(int argc, char *argv[]){
     args[0] = "./player";
     args[1] = sprintf_parameters_id;
     /* wait type on args[2]*/
-    args[3] = NULL;
-	
-	
+    /* wait letter to pawn */
+    args[4] = NULL;
 	
 	setvbuf(stdout, NULL, _IONBF, 0);
 	setvbuf(stderr, NULL, _IONBF, 0);
@@ -71,17 +78,91 @@ int main(int argc, char *argv[]){
     /*SETTING THE MESSAGE QUEUE FOR EVERY PLAYER*/
     player_msg_id = msgget(getpid(), 0666 | IPC_CREAT);
 
-    for(i = 1; i <= parameters->SO_NUM_P; i++){
-    	message_to_pawn.mtype = i;
-	    message_to_pawn.x = i;
-	    message_to_pawn.y = i;
-	    /*message_to_pawn.strategy = "NSWEEWSN"*/
+    /* SEZIONE CRITICA GIOCATORI*/
+    /*-----------------------------------------------------------------------------------------*/
+    switch(player_type){
+    	case 65: /* A */
+    		for(i = 0; i < parameters->SO_NUM_P; i++){
+		    	message_to_pawn.mtype = i+1;
+			    message_to_pawn.x = i;
+			    message_to_pawn.y = 0;
+			    /*message_to_pawn.strategy = "NSWEEWSN"*/
 
-	    a = msgsnd(player_msg_id, &message_to_pawn, sizeof(int) * 2, 0);
-	    if(a == -1){
-	    	fprintf(stderr, "MSGSEND: ret: %d, errno: %d, %s\n", a, errno, strerror(errno));
-	    }
+			    a = msgsnd(player_msg_id, &message_to_pawn, sizeof(int) * 2, 0);
+			    if(a == -1){
+			    	fprintf(stderr, "MSGSEND: ret: %d, errno: %d, %s\n", a, errno, strerror(errno));
+			    }
+
+			    sprintf (sprintf_letter, "%d", 65);
+
+			    args[3] = sprintf_letter;
+    		}
+    		
+    	break;
+    	case 66: /* B */
+    		for(i = 0; i < parameters->SO_NUM_P; i++){
+		    	message_to_pawn.mtype = i+1;
+			    message_to_pawn.x = i;
+			    message_to_pawn.y = parameters->SO_BASE-1;
+			    /*message_to_pawn.strategy = "NSWEEWSN"*/
+
+			    a = msgsnd(player_msg_id, &message_to_pawn, sizeof(int) * 2, 0);
+			    if(a == -1){
+			    	fprintf(stderr, "MSGSEND: ret: %d, errno: %d, %s\n", a, errno, strerror(errno));
+			    }
+
+				sprintf (sprintf_letter, "%d", 66);
+
+			    args[3] = sprintf_letter;
+    		}
+
+
+    	break;
+    	case 67: /* C */
+    		for(i = 1; i <= parameters->SO_NUM_P; i++){
+		    	message_to_pawn.mtype = i;
+			    message_to_pawn.x = i;
+			    message_to_pawn.y = i;
+			    /*message_to_pawn.strategy = "NSWEEWSN"*/
+
+			    a = msgsnd(player_msg_id, &message_to_pawn, sizeof(int) * 2, 0);
+			    if(a == -1){
+			    	fprintf(stderr, "MSGSEND: ret: %d, errno: %d, %s\n", a, errno, strerror(errno));
+			    }
+
+			    sprintf (sprintf_letter, "%d", 67);
+
+			    args[3] = sprintf_letter;
+    		}
+    	break;
+    	case 68: /* D */
+    		for(i = 1; i <= parameters->SO_NUM_P; i++){
+		    	message_to_pawn.mtype = i;
+			    message_to_pawn.x = i;
+			    message_to_pawn.y = i;
+			    /*message_to_pawn.strategy = "NSWEEWSN"*/
+
+			    a = msgsnd(player_msg_id, &message_to_pawn, sizeof(int) * 2, 0);
+			    if(a == -1){
+			    	fprintf(stderr, "MSGSEND: ret: %d, errno: %d, %s\n", a, errno, strerror(errno));
+			    }
+
+			    sprintf (sprintf_letter, "%d", 68);
+
+			    args[3] = sprintf_letter;
+    		}
+    	break;
+    	default:
+    		fprintf(stderr, "Number of player exceeded\n");
+    		exit(EXIT_FAILURE);
+    	break;
+
     }
+
+    /*-----------------------------------------------------------------------------------------*/
+
+
+    
 
     
     /*-------------------------------------------*/
@@ -94,7 +175,7 @@ int main(int argc, char *argv[]){
     		fprintf(stderr, "Failed to Fork Pawns PID#%d%s\n", getpid());
     		exit(EXIT_FAILURE);
     	case 0:
-    		
+    		/* Giving the type */
     		sprintf (sprintf_type, "%d", i+1);
     		args[2] = sprintf_type;
     		if(execve("./pawn", args, NULL)){

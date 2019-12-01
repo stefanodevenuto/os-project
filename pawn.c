@@ -15,14 +15,20 @@ int main(int argc, char *argv[]){
 	int parameters_id;
 	struct param * parameters;
 	int player_sem_id;
+	int chessboard_mem_id;
+	int * chessboard;
+	int chessboard_sem_id;
 
 	int player_msg_id;
 	struct message message_to_pawn;
 	long type;
+	int player_letter;
 	int a;
 
 	parameters_id = atol(argv[1]);
 	type = atol(argv[2]);
+	player_letter = -atol(argv[3]);
+
 	
 	parameters = shmat(parameters_id,NULL,0);
 
@@ -35,7 +41,23 @@ int main(int argc, char *argv[]){
 		fprintf(stderr, "MSGRCV: ret: %d, errno: %d, %s\n", a, errno, strerror(errno));
 	}
 
-	printf("X: %d, Y: %d\n",message_to_pawn.x, message_to_pawn.y );
+	printf("TYPE: %d,\tX: %d, Y: %d\n",type, message_to_pawn.x, message_to_pawn.y );
+
+    
+	if((chessboard_mem_id = shmget(CHESSBOARD_MEM_KEY,sizeof(int) * parameters->SO_ALTEZZA * parameters->SO_BASE, 0666)) == -1){
+		if(errno == ENOENT)
+			fprintf(stderr, "Failed access to memory for pawns\n");
+		exit(EXIT_FAILURE);
+	}
+
+    chessboard = shmat(chessboard_mem_id,NULL,0);
+
+    chessboard[message_to_pawn.y * parameters->SO_BASE + message_to_pawn.x] = player_letter;
+    printf("Player letter: %d\n", player_letter);
+
+    chessboard_sem_id = semget(CHESSBOARD_SEM_KEY, parameters->SO_ALTEZZA * parameters->SO_BASE, 0666 | IPC_CREAT);
+    fprintf(stderr, "ret: %d, errno: %d, %s\n", errno, strerror(errno) );
+    semctl(chessboard_sem_id, message_to_pawn.y * parameters->SO_BASE + message_to_pawn.x, SETVAL, 0);
 
 	printf("Pawn SBLOCCA\n");
 	sem_reserve_1(player_sem_id, 0);
