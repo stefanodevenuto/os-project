@@ -50,20 +50,25 @@ int main(int argc, char *argv[]){
 		exit(EXIT_FAILURE);
 	}
 
-    chessboard = shmat(chessboard_mem_id,NULL,0);
-
-    
+    //printf("TYPE: %c, Colonna: %d, Riga: %d\n", atol(argv[3]), message_to_pawn.x, message_to_pawn.y);
    
-    chessboard[message_to_pawn.y * parameters->SO_BASE + message_to_pawn.x] = player_letter;
     
-   
-
-    chessboard_sem_id = semget(CHESSBOARD_SEM_KEY, parameters->SO_ALTEZZA * parameters->SO_BASE, 0666);
     
-    semctl(chessboard_sem_id, message_to_pawn.y * parameters->SO_BASE + message_to_pawn.x, SETVAL, 0);
 
-	printf("Pawn SBLOCCA\n");
+	/*printf("Pawn SBLOCCA\n");*/
 	sem_reserve_1(player_sem_id, 0);
+	/*
+	.
+	.
+	. Wait in read() for strategy
+	.
+	.
+	.
+	*/
+
+
+
+
 	exit(EXIT_SUCCESS);
 
 }

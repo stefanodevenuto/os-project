@@ -11,7 +11,11 @@
 #include <sys/msg.h>
 #include "semaphore.h"
 
+void set_pawns(int letter, int parameters_id, int player_msg_id, int chessboard_mem_id, int chessboard_sem_id);
+
 int main(int argc, char *argv[]){
+
+	printf("PID FIGLIO: %d\n", getpid());
 	
 
 	if(argc < 2){
@@ -20,6 +24,7 @@ int main(int argc, char *argv[]){
 	}
 	
 	int i;
+	int k;
 	
 	int parameters_id;
 	struct param * parameters;
@@ -34,6 +39,11 @@ int main(int argc, char *argv[]){
 	int player_type;
 
 	int turn_semaphore;
+
+	int chessboard_sem_id;
+	int chessboard_mem_id;
+	int rows;
+	int columns;
 
 
 	int a;
@@ -64,15 +74,22 @@ int main(int argc, char *argv[]){
     args[0] = "./player";
     args[1] = sprintf_parameters_id;
     /* wait type on args[2]*/
-    /* wait letter to pawn */
+    /* wait letter to pawn on args[3]*/
     args[4] = NULL;
 	
 	setvbuf(stdout, NULL, _IONBF, 0);
 	setvbuf(stderr, NULL, _IONBF, 0);
 
+	rows = parameters->SO_ALTEZZA;
+	columns = parameters->SO_BASE;
+
+	chessboard_mem_id = shmget(CHESSBOARD_MEM_KEY,sizeof(int) * rows * columns, 0666);
+	chessboard_sem_id = semget(CHESSBOARD_SEM_KEY, rows * columns, 0666);
+
+
 	/*SETTING OF THE WAIT FOR 0 SEMAPHORE FOR EVERY PAWN FOR EVERY PLAYER*/
 
-	sem_reserve_1(master_sem_id, 0);
+	/* sem_reserve_1(master_sem_id, 0); */
 	
 	if((player_sem_id = semget(getpid(), 1, 0666 | IPC_CREAT)) == -1){
 		if(errno == ENOENT)
@@ -85,92 +102,18 @@ int main(int argc, char *argv[]){
     /*SETTING THE MESSAGE QUEUE FOR EVERY PLAYER*/
     player_msg_id = msgget(getpid(), 0666 | IPC_CREAT);
 
-    /* SEZIONE CRITICA GIOCATORI*/
+    i=0;
+    int l = 0;
+
+    						/* SEZIONE CRITICA GIOCATORI */
     /*-----------------------------------------------------------------------------------------*/
     sem_reserve_1(turn_semaphore, TURN_ENTRY);
-    switch(player_type){
-    	case 65: /* A */
-    		for(i = 0; i < parameters->SO_NUM_P; i++){
-		    	message_to_pawn.mtype = i+1;
-			    message_to_pawn.y = i;
-			    message_to_pawn.x = 0;
-			    /*message_to_pawn.strategy = "NSWEEWSN"*/
-
-			    a = msgsnd(player_msg_id, &message_to_pawn, sizeof(int) * 2, 0);
-			    if(a == -1){
-			    	fprintf(stderr, "MSGSEND: ret: %d, errno: %d, %s\n", a, errno, strerror(errno));
-			    }
-
-			    sprintf (sprintf_letter, "%d", 65);
-
-			    args[3] = sprintf_letter;
-    		}
-    		
-    	break;
-    	case 66: /* B */
-    		for(i = 0; i < parameters->SO_NUM_P; i++){
-		    	message_to_pawn.mtype = i+1;
-			    message_to_pawn.y = i;
-			    message_to_pawn.x = parameters->SO_BASE-1;
-			    /*message_to_pawn.strategy = "NSWEEWSN"*/
-
-			    a = msgsnd(player_msg_id, &message_to_pawn, sizeof(int) * 2, 0);
-			    if(a == -1){
-			    	fprintf(stderr, "MSGSEND: ret: %d, errno: %d, %s\n", a, errno, strerror(errno));
-			    }
-
-				sprintf (sprintf_letter, "%d", 66);
-
-			    args[3] = sprintf_letter;
-    		}
-
-
-    	break;
-    	case 67: /* C */
-    		for(i = 1; i <= parameters->SO_NUM_P; i++){
-		    	message_to_pawn.mtype = i;
-			    message_to_pawn.y = i;
-			    message_to_pawn.x = i;
-			    /*message_to_pawn.strategy = "NSWEEWSN"*/
-
-			    a = msgsnd(player_msg_id, &message_to_pawn, sizeof(int) * 2, 0);
-			    if(a == -1){
-			    	fprintf(stderr, "MSGSEND: ret: %d, errno: %d, %s\n", a, errno, strerror(errno));
-			    }
-
-			    sprintf (sprintf_letter, "%d", 67);
-
-			    args[3] = sprintf_letter;
-    		}
-    	break;
-    	case 68: /* D */
-    		for(i = 1; i <= parameters->SO_NUM_P; i++){
-		    	message_to_pawn.mtype = i;
-			    message_to_pawn.y = i;
-			    message_to_pawn.x = i;
-			    /*message_to_pawn.strategy = "NSWEEWSN"*/
-
-			    a = msgsnd(player_msg_id, &message_to_pawn, sizeof(int) * 2, 0);
-			    if(a == -1){
-			    	fprintf(stderr, "MSGSEND: ret: %d, errno: %d, %s\n", a, errno, strerror(errno));
-			    }
-
-			    sprintf (sprintf_letter, "%d", 68);
-
-			    args[3] = sprintf_letter;
-    		}
-    	break;
-    	default:
-    		fprintf(stderr, "Number of player exceeded\n");
-    		exit(EXIT_FAILURE);
-    	break;
-
-    }
-    printf("FINITO PLAYER %c\n", player_type);
-    sleep(3);
-
+	    set_pawns(player_type, parameters_id, player_msg_id, chessboard_mem_id, chessboard_sem_id);
+	    sprintf (sprintf_letter, "%d", player_type);
+		args[3] = sprintf_letter;
+    	printf("FINITO PLAYER %c\n", player_type);
+    	sleep(3);
     sem_release(turn_semaphore, TURN_ENTRY);
-
     /*-----------------------------------------------------------------------------------------*/
 
 
@@ -218,4 +161,108 @@ int main(int argc, char *argv[]){
     /*printf("Risorsa liberata %d\n", getpid());*/
     
 	exit(EXIT_SUCCESS);
+}
+
+void set_pawns(int letter, int parameters_id, int player_msg_id, int chessboard_mem_id, int chessboard_sem_id){
+	static int more_player = 0;
+	int i;
+	int k;
+	int l;
+	struct message message_to_pawn;
+	int test;
+	struct param * parameters;
+
+	int wall;
+
+	int * chessboard;
+
+	parameters = shmat(parameters_id,NULL,0);
+
+    chessboard = shmat(chessboard_mem_id,NULL,0);
+
+    if(letter == 69)
+    	printf("DEFAULT----------------------\n");
+
+	
+	if(letter == 65){
+		i = 0;
+		l = 0;
+	}else if(letter == 66){
+		i = 0;
+		l = parameters->SO_BASE-1;
+	}else if(letter == 67){
+		i = 0;
+		l = (parameters->SO_BASE/4)-1;
+		
+		wall = l + l + l;
+		printf("L per la C vale: %d, e WALL: %d\n", l, wall);
+	}else if(letter = 68){
+		i = parameters->SO_ALTEZZA-1;
+		l = (parameters->SO_BASE/4)-1;
+		
+		wall = l + l + l;
+		printf("L per la D vale: %d, e WALL: %d\n", l, wall);
+	}else{
+		printf("-----------------DEFAULT----------------------\n");
+	}
+	
+	for(k = 0; k < parameters->SO_NUM_P; k++){
+    	
+		message_to_pawn.mtype = k+1;
+		message_to_pawn.y = i;
+		message_to_pawn.x = l;
+
+		switch(letter){
+			case 65:
+			case 66:
+				i++;
+				if(i == parameters->SO_ALTEZZA){
+					i = 0;
+					if(letter == 65){
+				    	l++;
+					}else{
+					    l--;
+					}
+				}
+
+			break;
+
+			case 67:
+			case 68:
+				l++;
+				if(l == wall){
+					l = (parameters->SO_BASE/4)-1;
+					if(letter == 67){
+						i++;
+					}else{
+						i--;
+					}
+				}
+
+			break;
+
+			default:
+				while(1){
+					message_to_pawn.y = rand() % parameters->SO_ALTEZZA;
+					message_to_pawn.x = rand() % parameters->SO_BASE;
+					if(chessboard[message_to_pawn.y * parameters->SO_BASE + message_to_pawn.x] == 1)
+						break;
+				}
+			break;
+
+		}
+		
+		chessboard[message_to_pawn.y * parameters->SO_BASE + message_to_pawn.x] = -letter;
+		
+		semctl(chessboard_sem_id, message_to_pawn.y * parameters->SO_BASE + message_to_pawn.x, SETVAL, 0);
+
+
+			    /*message_to_pawn.strategy = "NSWEEWSN"*/
+
+		test = msgsnd(player_msg_id, &message_to_pawn, sizeof(int) * 2, 0);
+		if(test == -1){
+			fprintf(stderr, "MSGSEND: ret: %d, errno: %d, %s\n", test, errno, strerror(errno));
+		}	    
+    }   
+    
 }

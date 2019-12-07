@@ -14,6 +14,7 @@ int set_parameters();
 
 int main(int argc, char const *argv[]){
 
+    printf("%d\n", getpid());
     int chessboard_rows;
     int chessboard_cols;
 
@@ -45,6 +46,15 @@ int main(int argc, char const *argv[]){
     int master_sem_id;
 
     char * args[4]; 
+
+    int flag_number;
+    int total_score;
+    int media;
+    int num;
+    int pos;
+    int sum;
+
+    int switch_color_pawn;
 	
     /*int semid;
     char my_string[100];*/
@@ -69,10 +79,6 @@ int main(int argc, char const *argv[]){
     args[1] = sprintf_parameters_id;
     /* Setting in for for fork the args[2]*/
     args[3] = NULL;
-
-    
-    
-
 
     /*print_chessboard();
 
@@ -134,14 +140,75 @@ int main(int argc, char const *argv[]){
     /*printf("Ready PADRE: %d\n",semctl(sem_id, READY_ENTRY, GETVAL));*/
     fprintf(stdout,"Master SINCRONIZZATO\n");
 
+
+                /* Calculation of flags and their scores*/
+    /* -------------------------------------------------------------------- */
+    total_score = parameters->SO_ROUND_SCORE;
+
+    srand(getpid());
+
+    flag_number = rand() % (parameters->SO_FLAG_MAX - parameters->SO_FLAG_MIN + 1) + parameters->SO_FLAG_MIN;
+
+
+    sum  = 0;
+    for(i = flag_number - 1; i != 0 ; i--){
+        media = total_score/i;
+        num = rand() % media + 1;
+        pos = rand() % (rows * columns);
+        if(chessboard[pos] == 0){
+            sum += num;
+            chessboard[pos] = num;
+            total_score -= num;
+            printf("%d \n", num);
+        }else{
+            i++;
+        }
+    }
+    while(1){
+        pos = rand() % (rows * columns);
+        if(chessboard[pos] == 0){
+            sum += total_score;
+            chessboard[pos] = total_score;
+            printf("%d \n", total_score);
+            break;
+        }
+    }
+    printf("Somma: %d\n", sum);
+
+    /* -------------------------------------------------------------------- */
     printf("Values:\n");
     for(i=0; i<rows; i++){
         
         for(j=0; j<columns; j++){
-            
-            if(chessboard[i * parameters->SO_BASE + j] < 0){
-                printf(" %c", -(chessboard[i * parameters->SO_BASE + j]));
-            }else if(chessboard[i * parameters->SO_BASE + j] > 0){
+            switch_color_pawn = chessboard[i * parameters->SO_BASE + j];
+            if( switch_color_pawn < 0){
+                switch(switch_color_pawn){
+                    case -65:
+                        printf("\033[1;31m");
+                        printf(" %c", -(chessboard[i * parameters->SO_BASE + j]));
+                        printf("\033[0m");
+                    break;
+                    case -66:
+                        printf("\033[1;34m");
+                        printf(" %c", -(chessboard[i * parameters->SO_BASE + j]));
+                        printf("\033[0m");
+                    break;
+                    case -67:
+                        printf("\033[1;33m");
+                        printf(" %c", -(chessboard[i * parameters->SO_BASE + j]));
+                        printf("\033[0m");
+                    break;
+                    case -68:
+                        printf("\033[1;32m");
+                        printf(" %c", -(chessboard[i * parameters->SO_BASE + j]));
+                        printf("\033[0m");
+                    break;
+                    default:
+                        printf(" %c", -(chessboard[i * parameters->SO_BASE + j]));
+                    break;
+                }
+                
+            }else if(switch_color_pawn > 0){
                 printf(" %d", chessboard[i * parameters->SO_BASE + j]);
             }else{
                 printf(" _");
@@ -152,7 +219,14 @@ int main(int argc, char const *argv[]){
     printf("Semaphore values:\n");
     for(i=0; i<rows; i++){
         for(j=0; j<columns; j++){
-            printf("%d ", semctl(chessboard_sem_id, i * parameters->SO_BASE + j, GETVAL));
+            if(semctl(chessboard_sem_id, i * parameters->SO_BASE + j, GETVAL)){
+                printf("%d ", semctl(chessboard_sem_id, i * parameters->SO_BASE + j, GETVAL));
+            }else{
+                printf("\033[0;31m"); /* Change color to RED*/
+                printf("%d ", semctl(chessboard_sem_id, i * parameters->SO_BASE + j, GETVAL));
+                printf("\033[0m");
+            }
+            
 
         }
         printf("\n");
