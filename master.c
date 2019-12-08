@@ -83,8 +83,8 @@ int main(int argc, char const *argv[]){
     /*print_chessboard();
 
     
-    /* Setting up chessboard and print*/
-    /*--------------------------------------------------------------------*/
+                        /* Setting up chessboard */
+    /* -------------------------------------------------------------------- */
 
     rows = parameters->SO_ALTEZZA;
     columns = parameters->SO_BASE;
@@ -100,8 +100,7 @@ int main(int argc, char const *argv[]){
             semctl(chessboard_sem_id, i * parameters->SO_BASE + j, SETVAL, 1);
         }
     }
-
-    /*--------------------------------------------------------------------*/
+    /* -------------------------------------------------------------------- */
     
 
 
@@ -124,22 +123,27 @@ int main(int argc, char const *argv[]){
     	}
     }
 
-    /*printf("parameters[SO_NUM_G]: %d\n", parameters[SO_NUM_G]);*/
+                        /* Setting semaphores*/
+    /* ----------------------------------------------------------------------------*/
+    master_sem_id = semget(MAIN_SEM, 3, 0666 | IPC_CREAT);
     
-    master_sem_id = semget(KEY_SEM_MASTER_WAIT_PLRS, 2, 0666 | IPC_CREAT);
-    
-    sem_set_val(master_sem_id, READY_ENTRY, parameters->SO_NUM_G);
+    /* Used for the wait-for-zero for the master by players*/
+    sem_set_val(master_sem_id, SYNCHRO, 0);
+    sem_set_val(master_sem_id, MASTER, parameters->SO_NUM_G);
 
+    /* Used to implement the mutual exclusion for the players positioning phase*/
     sem_set_val(master_sem_id, TURN_ENTRY, 1);
+    /* ----------------------------------------------------------------------------*/
+
+
+                        /* Wait players */    
+    /* ----------------------------------------------------------------------------*/
+    printf("Master aspetta %d\n", MAIN_SEM);
+
+    sem_reserve_0(master_sem_id, MASTER);
     
-
-    /*printf("Ready PADRE: %d\n",semctl(sem_id, READY_ENTRY, GETVAL));*/
-    printf("Master aspetta %d\n", KEY_SEM_MASTER_WAIT_PLRS);
-
-    sem_reserve_0(master_sem_id, 0);
-    /*printf("Ready PADRE: %d\n",semctl(sem_id, READY_ENTRY, GETVAL));*/
     fprintf(stdout,"Master SINCRONIZZATO\n");
-
+    /* ----------------------------------------------------------------------------*/
 
                 /* Calculation of flags and their scores*/
     /* -------------------------------------------------------------------- */
@@ -174,8 +178,23 @@ int main(int argc, char const *argv[]){
         }
     }
     printf("Somma: %d\n", sum);
-
     /* -------------------------------------------------------------------- */
+
+
+                /* Set semaphores and wait */
+    /* -------------------------------------------------------------------- */
+    sem_set_val(master_sem_id, A, parameters->SO_NUM_G);
+    sem_set_val(master_sem_id, SYNCHRO, parameters->SO_NUM_G);
+    printf("MASTER ASPETTA per A\n");
+    sem_reserve_0(master_sem_id, A);
+    /* -------------------------------------------------------------------- */
+
+                    /* Unblock players and START GAME */
+    /* -------------------------------------------------------------------- */
+    sem_set_val(master_sem_id, MASTER, parameters->SO_NUM_G);
+    printf("GAME INIZIATO MASTER\n");
+    /* -------------------------------------------------------------------- */
+
     printf("Values:\n");
     for(i=0; i<rows; i++){
         

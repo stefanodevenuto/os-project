@@ -24,6 +24,7 @@ int main(int argc, char *argv[]){
 	long type;
 	int player_letter;
 	int a;
+	int master_sem_id;
 
 	parameters_id = atol(argv[1]);
 	type = atol(argv[2]);
@@ -50,24 +51,56 @@ int main(int argc, char *argv[]){
 		exit(EXIT_FAILURE);
 	}
 
-    //printf("TYPE: %c, Colonna: %d, Riga: %d\n", atol(argv[3]), message_to_pawn.x, message_to_pawn.y);
-   
-    
-    
-
-	/*printf("Pawn SBLOCCA\n");*/
+					/* Unblock players */
+    /* ----------------------------------------------------------------- */
 	sem_reserve_1(player_sem_id, 0);
+    /* ----------------------------------------------------------------- */
+
+
+					/* Wait for strategy */
+    /* ----------------------------------------------------------------- */
+    //printf("ASPETTO LA STRATEGIA\n");
+	a = msgrcv(player_msg_id, &message_to_pawn, LEN_X_Y, type, 0);
+	if(a == -1){
+		fprintf(stderr, "MSGRCV: ret: %d, errno: %d, %s\n", a, errno, strerror(errno));
+	}
+	//printf("STRATEGIA RICEVUTA\n");
+    /* ----------------------------------------------------------------- */
+
+
+
 	/*
 	.
 	.
-	. Wait in read() for strategy
+	. Gestione strategia ricevuta
 	.
 	.
 	.
 	*/
+	//printf("PAWN SBLOCCA PLAYER\n");
+					/* Unblock players */
+    /* ----------------------------------------------------------------- */
+	sem_reserve_1(player_sem_id, 0);
+    /* ----------------------------------------------------------------- */
+	//printf("PAWN HA SBLOCCATO PLAYER\n");
 
 
+					/* Wait for 1 on synchro */
+    /* ----------------------------------------------------------------- */
+    if((master_sem_id = semget(MAIN_SEM, 3, 0666)) == -1){
+    	printf("DIO CANE 2\n");
+		if(errno == ENOENT)
+			fprintf(stderr, "Failed access to memory for pawns\n");
+		exit(EXIT_FAILURE);
+	}
+	//printf("DIO CANE 3\n");
+	//printf("ASPETTO DI ESSERE SBLOCCATA: %d\n", semctl(master_sem_id, SYNCHRO,GETVAL));
+	sem_reserve_1(master_sem_id, SYNCHRO);
+	//printf("SONO STATA SBLOCCATA PAWN -_______-_-_-_--_____-----\n");
+    /* ----------------------------------------------------------------- */
 
+
+	printf("GAME INIZIATO PAWN\n");
 
 	exit(EXIT_SUCCESS);
 

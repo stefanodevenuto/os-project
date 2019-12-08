@@ -55,6 +55,8 @@ int main(int argc, char *argv[]){
 	char sprintf_parameters_id[40];
 	char sprintf_letter[40];
 
+	int test;
+
 	parameters_id = atoi(argv[1]);
 	player_type = atoi(argv[2]);
 
@@ -63,7 +65,7 @@ int main(int argc, char *argv[]){
 	
 	parameters = shmat(parameters_id,NULL,0);
 
-	turn_semaphore = semget(KEY_SEM_MASTER_WAIT_PLRS, 2, 0666 | IPC_CREAT);
+	turn_semaphore = semget(MAIN_SEM, 3, 0666);
     
 
 	
@@ -97,7 +99,10 @@ int main(int argc, char *argv[]){
 		exit(EXIT_FAILURE);
 	}
 	
-    sem_set_val(player_sem_id, READY_ENTRY, parameters->SO_NUM_P);
+				/* Set pawn to wait pawns*/
+	/* -----------------------------------------------------------------*/
+    sem_set_val(player_sem_id, 0, parameters->SO_NUM_P);
+    /* -----------------------------------------------------------------*/
 
     /*SETTING THE MESSAGE QUEUE FOR EVERY PLAYER*/
     player_msg_id = msgget(getpid(), 0666 | IPC_CREAT);
@@ -142,23 +147,62 @@ int main(int argc, char *argv[]){
 		}
 	}
 
-	if((master_sem_id = semget(KEY_SEM_MASTER_WAIT_PLRS, 1, 0666)) == -1){
-		if(errno == ENOENT)
-			fprintf(stderr, "Semaphore doesn't exist\n");
-		exit(EXIT_FAILURE);
-	}
-
+						/* Wait for 0 for pawns*/
+	/* -------------------------------------------------------------------------- */
     printf("Player aspetta %d\n", getpid());
     sem_reserve_0(player_sem_id, 0);
     printf("Player SINCRONIZZATO\n");
-
+	/* -------------------------------------------------------------------------- */
     
-    sem_reserve_1(master_sem_id, 0);
-    /*fprintf(stderr, "a: %d, %d%s\n", a, errno, strerror(errno));*/
-        
+
+    					/* Unblock master and wait on synchro */
+	/* -------------------------------------------------------------------------- */
+	
+    sem_reserve_1(turn_semaphore, MASTER);
+    //printf("SYNCHRO PLAYER VALE PRIMA: %d\n",semctl(turn_semaphore, SYNCHRO,GETVAL));
+
+    sem_reserve_1(turn_semaphore, SYNCHRO);
+	/* -------------------------------------------------------------------------- */
+
+				/* Unblock pawns by send strategy and wait for them */
+	/* -------------------------------------------------------------------------- */
+	sem_set_val(player_sem_id, 0, parameters->SO_NUM_P);
+	for(i=0; i < parameters->SO_NUM_P; i++){ /* FAKE STRATEGY */
+		message_to_pawn.mtype = i+1;
+		message_to_pawn.y = i;
+		message_to_pawn.x = i;
+
+		test = msgsnd(player_msg_id, &message_to_pawn, sizeof(int) * 2, 0);
+		if(test == -1){
+			fprintf(stderr, "MSGSEND: ret: %d, errno: %d, %s\n", test, errno, strerror(errno));
+		}
+	}
+	//printf("ASPETTO LE PEDINE -----------------------------------\n");
+	sem_reserve_0(player_sem_id, 0);
+	//printf("PEDINE MI HANNO SBLOCCATO ---------------------------\n");
+	/* -------------------------------------------------------------------------- */
+
+
+				/* Unblock master and wait for him */
+	/* -------------------------------------------------------------------------- */
+	sem_reserve_1(turn_semaphore, A);
+	sem_reserve_1(turn_semaphore, MASTER);
+	/* -------------------------------------------------------------------------- */
+
+
+				/* Unblock pawns and START GAME */
+	/* -------------------------------------------------------------------------- */
+	//printf("SYNCHRO PLAYER VALE: %d\n",semctl(turn_semaphore, SYNCHRO,GETVAL));
+	sem_set_val(turn_semaphore, SYNCHRO, parameters->SO_NUM_P * parameters->SO_NUM_G);
+	//printf("SYNCHRO PLAYER DOPO VALE: %d\n",semctl(turn_semaphore, SYNCHRO,GETVAL));
+
+	/* -------------------------------------------------------------------------- */
+       
+	printf("GAME INIZIATO PLAYER\n");
+
     while((select = wait(NULL)) != -1);
 
-    /*printf("Risorsa liberata %d\n", getpid());*/
+    
     
 	exit(EXIT_SUCCESS);
 }
@@ -195,13 +239,13 @@ void set_pawns(int letter, int parameters_id, int player_msg_id, int chessboard_
 		l = (parameters->SO_BASE/4)-1;
 		
 		wall = l + l + l;
-		printf("L per la C vale: %d, e WALL: %d\n", l, wall);
-	}else if(letter = 68){
+		printf("L per la C vale:     ----  --  letter:%d\n", letter);
+	}else if(letter == 68){
 		i = parameters->SO_ALTEZZA-1;
 		l = (parameters->SO_BASE/4)-1;
 		
 		wall = l + l + l;
-		printf("L per la D vale: %d, e WALL: %d\n", l, wall);
+		printf("L per la D vale:     ----  --  letter:%d\n", letter);
 	}else{
 		printf("-----------------DEFAULT----------------------\n");
 	}

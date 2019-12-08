@@ -6,14 +6,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define KEY_SEM_MASTER_WAIT_PLRS 55553
-#define KEY_SEM_PLR_1_WAIT_PWNS 91822
-#define KEY_SEM_PLR_2_WAIT_PWNS 91821
+#define MAIN_SEM 55553
 #define CHESSBOARD_MEM_KEY 44445
 #define CHESSBOARD_SEM_KEY 33334
 #define PARAMETERS_MEM_KEY 22223
-#define READY_ENTRY 0
-#define TURN_ENTRY 1
+#define MASTER 0
+#define SYNCHRO 1
+#define A 2
+#define TURN_ENTRY 3
 #define LEN_X_Y 8
 
 
