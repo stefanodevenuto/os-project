@@ -15,14 +15,6 @@ void set_pawns(int letter, int parameters_id, int player_msg_id, int chessboard_
 
 int main(int argc, char *argv[]){
 
-	printf("PID FIGLIO: %d\n", getpid());
-	
-
-	if(argc < 2){
-		fprintf(stderr, "Failed to pass parameter to players%s\n");
-		exit(EXIT_FAILURE);
-	}
-	
 	int i;
 	int k;
 	
@@ -51,12 +43,25 @@ int main(int argc, char *argv[]){
 	char * args[5]; 
 
 	struct message message_to_pawn;
+	struct strategy strategy_pawn;
 
 	char sprintf_parameters_id[40];
 	char sprintf_letter[40];
 
+	char * strat;
+
 	int test;
 
+	
+				/* Checking passed arguments */
+	/* ---------------------------------------------------------------- */
+	if(argc < 2){
+		fprintf(stderr, "Failed to pass parameter to players%s\n");
+		exit(EXIT_FAILURE);
+	}
+	/* ---------------------------------------------------------------- */
+
+	
 	parameters_id = atoi(argv[1]);
 	player_type = atoi(argv[2]);
 
@@ -72,13 +77,15 @@ int main(int argc, char *argv[]){
     sprintf (sprintf_parameters_id, "%d", parameters_id);
 
     
-
+    				/* Setting pawns parameters */
+    /* -------------------------------------------------------- */
     args[0] = "./player";
     args[1] = sprintf_parameters_id;
     /* wait type on args[2]*/
     /* wait letter to pawn on args[3]*/
     args[4] = NULL;
-	
+    /* -------------------------------------------------------- */
+
 	setvbuf(stdout, NULL, _IONBF, 0);
 	setvbuf(stderr, NULL, _IONBF, 0);
 
@@ -89,46 +96,40 @@ int main(int argc, char *argv[]){
 	chessboard_sem_id = semget(CHESSBOARD_SEM_KEY, rows * columns, 0666);
 
 
-	/*SETTING OF THE WAIT FOR 0 SEMAPHORE FOR EVERY PAWN FOR EVERY PLAYER*/
-
-	/* sem_reserve_1(master_sem_id, 0); */
-	
+			/* Access and set pawn semaphore to wait pawns*/
+	/* -----------------------------------------------------------------*/
 	if((player_sem_id = semget(getpid(), 1, 0666 | IPC_CREAT)) == -1){
 		if(errno == ENOENT)
 			fprintf(stderr, "Failed semaphore for pawns\n");
 		exit(EXIT_FAILURE);
 	}
-	
-				/* Set pawn to wait pawns*/
-	/* -----------------------------------------------------------------*/
+			
     sem_set_val(player_sem_id, 0, parameters->SO_NUM_P);
     /* -----------------------------------------------------------------*/
 
-    /*SETTING THE MESSAGE QUEUE FOR EVERY PLAYER*/
+    /* ----- Setting message queue for players------ */
     player_msg_id = msgget(getpid(), 0666 | IPC_CREAT);
 
-    i=0;
-    int l = 0;
+    
 
-    						/* SEZIONE CRITICA GIOCATORI */
-    /*-----------------------------------------------------------------------------------------*/
+    					/* Critical section players */
+    /* --------------------------------------------------------------------- */
     sem_reserve_1(turn_semaphore, TURN_ENTRY);
 	    set_pawns(player_type, parameters_id, player_msg_id, chessboard_mem_id, chessboard_sem_id);
 	    sprintf (sprintf_letter, "%d", player_type);
 		args[3] = sprintf_letter;
     	printf("FINITO PLAYER %c\n", player_type);
-    	sleep(3);
     sem_release(turn_semaphore, TURN_ENTRY);
-    /*-----------------------------------------------------------------------------------------*/
+    /* --------------------------------------------------------------------- */
 
 
     
 
     
-    /*-------------------------------------------*/
-
     
 
+    						/* Fork the pawns*/
+    /* -------------------------------------------------------------------------- */
 	for (i = 0; i < parameters->SO_NUM_P; i++){
 		switch(fork()){
 		case -1:
@@ -146,6 +147,8 @@ int main(int argc, char *argv[]){
     		break;
 		}
 	}
+	/* -------------------------------------------------------------------------- */
+
 
 						/* Wait for 0 for pawns*/
 	/* -------------------------------------------------------------------------- */
@@ -157,52 +160,47 @@ int main(int argc, char *argv[]){
 
     					/* Unblock master and wait on synchro */
 	/* -------------------------------------------------------------------------- */
-	
     sem_reserve_1(turn_semaphore, MASTER);
-    //printf("SYNCHRO PLAYER VALE PRIMA: %d\n",semctl(turn_semaphore, SYNCHRO,GETVAL));
-
     sem_reserve_1(turn_semaphore, SYNCHRO);
 	/* -------------------------------------------------------------------------- */
 
 				/* Unblock pawns by send strategy and wait for them */
 	/* -------------------------------------------------------------------------- */
 	sem_set_val(player_sem_id, 0, parameters->SO_NUM_P);
-	for(i=0; i < parameters->SO_NUM_P; i++){ /* FAKE STRATEGY */
-		message_to_pawn.mtype = i+1;
-		message_to_pawn.y = i;
-		message_to_pawn.x = i;
+	
+	for(i=0; i < parameters->SO_NUM_P; i++){
+		strategy_pawn.mtype = i+1;
+		
+		strncpy(strategy_pawn.strategy, "NNWENESS", 9);
+		
+		fprintf(stderr, "MSGSEND: ret: %d, errno: %d, %s\n", test, errno, strerror(errno));
+		
+		printf("STAMPO STRATEGY DA MANDARE: %s\n", strategy_pawn.strategy);
 
-		test = msgsnd(player_msg_id, &message_to_pawn, sizeof(int) * 2, 0);
+		test = msgsnd(player_msg_id, &strategy_pawn, sizeof(char) *  STRAT_LEN, 0);
 		if(test == -1){
 			fprintf(stderr, "MSGSEND: ret: %d, errno: %d, %s\n", test, errno, strerror(errno));
 		}
 	}
-	//printf("ASPETTO LE PEDINE -----------------------------------\n");
+	
 	sem_reserve_0(player_sem_id, 0);
-	//printf("PEDINE MI HANNO SBLOCCATO ---------------------------\n");
 	/* -------------------------------------------------------------------------- */
 
 
-				/* Unblock master and wait for him */
+					/* Unblock master and wait for him */
 	/* -------------------------------------------------------------------------- */
 	sem_reserve_1(turn_semaphore, A);
 	sem_reserve_1(turn_semaphore, MASTER);
 	/* -------------------------------------------------------------------------- */
 
 
-				/* Unblock pawns and START GAME */
+					/* Unblock pawns and START GAME */
 	/* -------------------------------------------------------------------------- */
-	//printf("SYNCHRO PLAYER VALE: %d\n",semctl(turn_semaphore, SYNCHRO,GETVAL));
 	sem_set_val(turn_semaphore, SYNCHRO, parameters->SO_NUM_P * parameters->SO_NUM_G);
-	//printf("SYNCHRO PLAYER DOPO VALE: %d\n",semctl(turn_semaphore, SYNCHRO,GETVAL));
-
 	/* -------------------------------------------------------------------------- */
        
-	printf("GAME INIZIATO PLAYER\n");
 
-    while((select = wait(NULL)) != -1);
-
-    
+    while((select = wait(NULL)) != -1);    
     
 	exit(EXIT_SUCCESS);
 }

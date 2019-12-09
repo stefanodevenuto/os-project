@@ -5,16 +5,17 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-
-#define MAIN_SEM 55553
-#define CHESSBOARD_MEM_KEY 44445
-#define CHESSBOARD_SEM_KEY 33334
-#define PARAMETERS_MEM_KEY 22223
-#define MASTER 0
+                       /*       ________ _________ ___ ____________  */
+#define MAIN_SEM 55553 /* ---> | MASTER | SYNCHRO | A | TURN_ENTRY | */
+#define MASTER 0       /*       -------- --------- --- ------------  */  
 #define SYNCHRO 1
 #define A 2
 #define TURN_ENTRY 3
+#define CHESSBOARD_MEM_KEY 44445
+#define CHESSBOARD_SEM_KEY 33334
+#define PARAMETERS_MEM_KEY 22223
 #define LEN_X_Y 8
+#define STRAT_LEN 300
 
 
 struct param{
@@ -35,6 +36,11 @@ struct message{
 	int x;
 	int y;
 	/*char * strategy;*/
+};
+
+struct strategy{
+    long mtype;
+    char strategy[STRAT_LEN]; 
 };
 /*#define POS(row,column) ((row)*(COLUMNS)+(column))*/
 

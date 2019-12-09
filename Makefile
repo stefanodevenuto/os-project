@@ -1,8 +1,8 @@
 all:
-	gcc -g -Og -c semaphore.c
-	gcc -g -Og master.c semaphore.o -o master
-	gcc -g -Og player.c semaphore.o -o player
-	gcc -g -Og pawn.c semaphore.o -o pawn
+	gcc -std=c89 -Wpedantic -g -Og -c semaphore.c
+	gcc -std=c89 -Wpedantic -g -Og master.c semaphore.o -o master
+	gcc -std=c89 -Wpedantic -g -Og player.c semaphore.o -o player
+	gcc -std=c89 -Wpedantic -g -Og pawn.c semaphore.o -o pawn
 
 clean:
 	rm -f *.o $(TARGET) *~

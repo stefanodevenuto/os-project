@@ -14,7 +14,7 @@ int set_parameters();
 
 int main(int argc, char const *argv[]){
 
-    printf("%d\n", getpid());
+    
     int chessboard_rows;
     int chessboard_cols;
 
@@ -181,18 +181,18 @@ int main(int argc, char const *argv[]){
     /* -------------------------------------------------------------------- */
 
 
-                /* Set semaphores and wait */
+                    /* Set semaphores and wait */
     /* -------------------------------------------------------------------- */
     sem_set_val(master_sem_id, A, parameters->SO_NUM_G);
     sem_set_val(master_sem_id, SYNCHRO, parameters->SO_NUM_G);
-    printf("MASTER ASPETTA per A\n");
+    
     sem_reserve_0(master_sem_id, A);
     /* -------------------------------------------------------------------- */
 
                     /* Unblock players and START GAME */
     /* -------------------------------------------------------------------- */
     sem_set_val(master_sem_id, MASTER, parameters->SO_NUM_G);
-    printf("GAME INIZIATO MASTER\n");
+    
     /* -------------------------------------------------------------------- */
 
     printf("Values:\n");
@@ -271,7 +271,7 @@ int set_parameters(){
     */
     int parameters_id;
     struct param * parameters;
-
+    FILE *fd;
     int a;
     int b;
     
@@ -282,7 +282,7 @@ int set_parameters(){
 
     
 
-    FILE *fd = fopen("config.txt", "r");
+    fd = fopen("config.txt", "r");
     if(!fd){
         fprintf(stderr, "Errore apertura file config.txt\n");
         exit(EXIT_FAILURE);

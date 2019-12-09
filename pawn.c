@@ -21,6 +21,7 @@ int main(int argc, char *argv[]){
 
 	int player_msg_id;
 	struct message message_to_pawn;
+	struct strategy strategy_pawn;
 	long type;
 	int player_letter;
 	int a;
@@ -30,26 +31,27 @@ int main(int argc, char *argv[]){
 	type = atol(argv[2]);
 	player_letter = -atol(argv[3]);
 
-	
+
+		  /* Getting chessboard, player semaphore and player queue*/
+	/* ---------------------------------------------------------------- */
 	parameters = shmat(parameters_id,NULL,0);
-
 	player_sem_id = semget(getppid(), 1, 0666);
-
 	player_msg_id = msgget(getppid(), 0666);
+	/* ---------------------------------------------------------------- */
 
+		     /* Receiving coordinates and accessing chessboard*/
+	/* ---------------------------------------------------------------- */
 	a = msgrcv(player_msg_id, &message_to_pawn, LEN_X_Y, type, 0);
 	if(a == -1){
 		fprintf(stderr, "MSGRCV: ret: %d, errno: %d, %s\n", a, errno, strerror(errno));
 	}
-
 	
-
-    
 	if((chessboard_mem_id = shmget(CHESSBOARD_MEM_KEY,sizeof(int) * parameters->SO_ALTEZZA * parameters->SO_BASE, 0666)) == -1){
 		if(errno == ENOENT)
 			fprintf(stderr, "Failed access to memory for pawns\n");
 		exit(EXIT_FAILURE);
 	}
+	/* ---------------------------------------------------------------- */
 
 					/* Unblock players */
     /* ----------------------------------------------------------------- */
@@ -59,12 +61,11 @@ int main(int argc, char *argv[]){
 
 					/* Wait for strategy */
     /* ----------------------------------------------------------------- */
-    //printf("ASPETTO LA STRATEGIA\n");
-	a = msgrcv(player_msg_id, &message_to_pawn, LEN_X_Y, type, 0);
+	a = msgrcv(player_msg_id, &strategy_pawn,sizeof(char) * STRAT_LEN, type, 0);
 	if(a == -1){
 		fprintf(stderr, "MSGRCV: ret: %d, errno: %d, %s\n", a, errno, strerror(errno));
 	}
-	//printf("STRATEGIA RICEVUTA\n");
+	printf("Pedina riceve strategia: %s\n", strategy_pawn.strategy);
     /* ----------------------------------------------------------------- */
 
 
@@ -77,12 +78,12 @@ int main(int argc, char *argv[]){
 	.
 	.
 	*/
-	//printf("PAWN SBLOCCA PLAYER\n");
+	
 					/* Unblock players */
     /* ----------------------------------------------------------------- */
 	sem_reserve_1(player_sem_id, 0);
     /* ----------------------------------------------------------------- */
-	//printf("PAWN HA SBLOCCATO PLAYER\n");
+	
 
 
 					/* Wait for 1 on synchro */
@@ -93,14 +94,19 @@ int main(int argc, char *argv[]){
 			fprintf(stderr, "Failed access to memory for pawns\n");
 		exit(EXIT_FAILURE);
 	}
-	//printf("DIO CANE 3\n");
-	//printf("ASPETTO DI ESSERE SBLOCCATA: %d\n", semctl(master_sem_id, SYNCHRO,GETVAL));
+	
 	sem_reserve_1(master_sem_id, SYNCHRO);
-	//printf("SONO STATA SBLOCCATA PAWN -_______-_-_-_--_____-----\n");
     /* ----------------------------------------------------------------- */
 
-
-	printf("GAME INIZIATO PAWN\n");
+	/*
+	.
+	.
+	.
+	. GAME
+	.
+	.
+	.
+	*/
 
 	exit(EXIT_SUCCESS);
 
