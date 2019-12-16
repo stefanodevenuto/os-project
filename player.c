@@ -11,7 +11,8 @@
 #include <sys/msg.h>
 #include "semaphore.h"
 
-void set_pawns(int letter, int parameters_id, int player_msg_id, int chessboard_mem_id, int chessboard_sem_id);
+void set_pawns(int letter, int parameters_id, int player_msg_id, int chessboard_mem_id, int chessboard_sem_id, struct position * positions);
+struct position * calculate_position(int parameters_id);
 
 int main(int argc, char *argv[]){
 
@@ -52,6 +53,12 @@ int main(int argc, char *argv[]){
 
 	int test;
 
+	int turn_sem_id;
+
+	int turn_sem_entry;
+	int j;
+	struct position * positions;
+
 	
 				/* Checking passed arguments */
 	/* ---------------------------------------------------------------- */
@@ -64,13 +71,14 @@ int main(int argc, char *argv[]){
 	
 	parameters_id = atoi(argv[1]);
 	player_type = atoi(argv[2]);
+	turn_sem_entry = atoi(argv[3]);
 
 	/*printf("Player Tipe: %d, in char: %c\n", player_type,player_type);*/
 	
 	
 	parameters = shmat(parameters_id,NULL,0);
 
-	turn_semaphore = semget(MAIN_SEM, 3, 0666);
+	master_sem_id = semget(MAIN_SEM, 3, 0666);
     
 
 	
@@ -95,6 +103,12 @@ int main(int argc, char *argv[]){
 	chessboard_mem_id = shmget(CHESSBOARD_MEM_KEY,sizeof(int) * rows * columns, 0666);
 	chessboard_sem_id = semget(CHESSBOARD_SEM_KEY, rows * columns, 0666);
 
+				/* Getting the Turn Semaphore */
+	/* --------------------------------------------------------------------- */
+	turn_sem_id = semget(MUTUAL_TURN, parameters->SO_NUM_G, 0666);
+	/* --------------------------------------------------------------------- */
+
+
 
 			/* Access and set pawn semaphore to wait pawns*/
 	/* -----------------------------------------------------------------*/
@@ -110,16 +124,32 @@ int main(int argc, char *argv[]){
     /* ----- Setting message queue for players------ */
     player_msg_id = msgget(getpid(), 0666 | IPC_CREAT);
 
+    positions = calculate_position(parameters_id);
     
 
     					/* Critical section players */
     /* --------------------------------------------------------------------- */
-    sem_reserve_1(turn_semaphore, TURN_ENTRY);
-	    set_pawns(player_type, parameters_id, player_msg_id, chessboard_mem_id, chessboard_sem_id);
-	    sprintf (sprintf_letter, "%d", player_type);
-		args[3] = sprintf_letter;
-    	printf("FINITO PLAYER %c\n", player_type);
-    sem_release(turn_semaphore, TURN_ENTRY);
+    for(i = 0; i < parameters->SO_NUM_P; i++){
+    	if(turn_sem_entry == 0){
+    		sem_reserve_1(turn_sem_id, parameters->SO_NUM_G - 1);	
+    	}
+    	else{
+    		sem_reserve_1(turn_sem_id, (turn_sem_entry-1)% parameters->SO_NUM_G);
+    	}
+			    set_pawns(player_type, parameters_id, player_msg_id, chessboard_mem_id, chessboard_sem_id, positions);
+			    
+			    sprintf (sprintf_letter, "%d", player_type);
+				args[3] = sprintf_letter;
+		    	printf("%c ", player_type);
+		    	
+		    	printf("CHI STO LIBERANDO: %d\n", turn_sem_entry);
+	    	sem_release(turn_sem_id, turn_sem_entry);
+	    	printf("%d\n", semctl(turn_sem_id, turn_sem_entry, GETVAL)); 
+	    for(j = 0; j < parameters->SO_NUM_G; j++){
+	    	printf("%d", semctl(turn_sem_id, j, GETVAL));
+	    }
+	    printf("\n");
+	}
     /* --------------------------------------------------------------------- */
 
 
@@ -160,8 +190,8 @@ int main(int argc, char *argv[]){
 
     					/* Unblock master and wait on synchro */
 	/* -------------------------------------------------------------------------- */
-    sem_reserve_1(turn_semaphore, MASTER);
-    sem_reserve_1(turn_semaphore, SYNCHRO);
+    sem_reserve_1(master_sem_id, MASTER);
+    sem_reserve_1(master_sem_id, SYNCHRO);
 	/* -------------------------------------------------------------------------- */
 
 				/* Unblock pawns by send strategy and wait for them */
@@ -189,14 +219,14 @@ int main(int argc, char *argv[]){
 
 					/* Unblock master and wait for him */
 	/* -------------------------------------------------------------------------- */
-	sem_reserve_1(turn_semaphore, A);
-	sem_reserve_1(turn_semaphore, MASTER);
+	sem_reserve_1(master_sem_id, A);
+	sem_reserve_1(master_sem_id, MASTER);
 	/* -------------------------------------------------------------------------- */
 
 
 					/* Unblock pawns and START GAME */
 	/* -------------------------------------------------------------------------- */
-	sem_set_val(turn_semaphore, SYNCHRO, parameters->SO_NUM_P * parameters->SO_NUM_G);
+	sem_set_val(master_sem_id, SYNCHRO, parameters->SO_NUM_P * parameters->SO_NUM_G);
 	/* -------------------------------------------------------------------------- */
        
 
@@ -205,10 +235,83 @@ int main(int argc, char *argv[]){
 	exit(EXIT_SUCCESS);
 }
 
-void set_pawns(int letter, int parameters_id, int player_msg_id, int chessboard_mem_id, int chessboard_sem_id){
-	static int more_player = 0;
+/*
+	Column constant = number of pawns per row / SO_BASE;
+		Column (X) Step = First time = Column constant / 2;
+				   		  Next times = Column constant;
+
+	Row constant = number of pawns per column / SO_ALTEZZA;
+		Row (Y) Step = First time = if even:
+										(Row constant / 2) + 1;
+									else:
+										Row constant / 2
+				   	   Next times = Row constant;
+*/
+
+
+struct position * calculate_position(int parameters_id){
+	int pos = 0;
 	int i;
-	int k;
+	int x_step;
+	int y_step;
+	struct position * positions;
+	struct param * parameters;
+	int row;
+	int initial_x;
+	int initial_y;
+	int j;
+	int pawns_per_row;
+	int pawns_per_column;
+	
+	parameters = shmat(parameters_id,NULL,0);
+
+	if(parameters->SO_BASE == 60){
+		pawns_per_row = 5;
+		pawns_per_column = 4;
+
+		x_step = parameters->SO_BASE / pawns_per_row;
+		y_step = parameters->SO_ALTEZZA / pawns_per_column;
+
+		initial_x = x_step / 2;
+		initial_y = y_step / 2 + 1;
+	}else{
+		pawns_per_row = 40;
+		pawns_per_column = 40;
+
+		x_step = parameters->SO_BASE / pawns_per_row;
+		y_step = parameters->SO_ALTEZZA / pawns_per_column;
+
+		initial_x = x_step / 2;
+		initial_y = y_step / 2;
+	}
+
+	positions = malloc(sizeof(positions) * pawns_per_row * pawns_per_column);
+		
+	for(i=0; i<pawns_per_column; i++){
+        for(j=0; j<pawns_per_row; j++){
+        	if(j == 0){
+            	positions[i * parameters->SO_BASE + j].x = initial_x;
+        	}
+           	else{
+           		positions[i * parameters->SO_BASE + j].x = positions[i * parameters->SO_BASE + (j-1)].x + x_step;
+           	}
+        	positions[i * parameters->SO_BASE + j].y = initial_y;
+        }
+        initial_y += y_step;
+    }
+
+	/*for(i=0; i<4; i++){
+        for(j=0; j<5; j++){
+        	printf("Position (%d,%d) (%d,%d)\n",i,j,positions[i * parameters->SO_BASE + j].x, positions[i * parameters->SO_BASE + j].y );
+        }   
+    }*/
+    printf("Finito calculate_position\n");
+    return positions;
+}
+
+void set_pawns(int letter, int parameters_id, int player_msg_id, int chessboard_mem_id, int chessboard_sem_id,struct position * positions){
+	static int k = 0;
+	int i;
 	int l;
 	struct message message_to_pawn;
 	int test;
@@ -217,21 +320,54 @@ void set_pawns(int letter, int parameters_id, int player_msg_id, int chessboard_
 	int wall;
 
 	int * chessboard;
+	int sem_chessboard;
+	int j;
+	int pawns_per_row;
+	int pawns_per_column;
+	
 
 	parameters = shmat(parameters_id,NULL,0);
 
     chessboard = shmat(chessboard_mem_id,NULL,0);
 
-    if(letter == 69)
-    	printf("DEFAULT----------------------\n");
+    if(parameters->SO_BASE == 60){
+		pawns_per_row = 5;
+		pawns_per_column = 4;
+	}else{
+		pawns_per_row = 40;
+		pawns_per_column = 40;
+	}
+    
+    for(i = 0; i< pawns_per_column; i++){
+	    for(j = 0; j < pawns_per_row; j++){
+	    	test = sem_reserve_1_no_wait(chessboard_sem_id, positions[i * parameters->SO_BASE + j].y * parameters->SO_BASE + positions[i * parameters->SO_BASE + j].x);
+	    	if(test != -1){
+	    		message_to_pawn.mtype = k+1;
+	    		message_to_pawn.y = positions[i * parameters->SO_BASE + j].y;
+				message_to_pawn.x = positions[i * parameters->SO_BASE + j].x;;
+				break;
+	    	}else{
+	    		
+	    	}
+	    		
+	    }	
+	    if(test != -1)
+	    	break;
+	}
+	printf("Type Pedina: %d\n", k);
+	k++;
+    /*if(letter == 69)
+    	/*printf("DEFAULT----------------------\n");
 
-	
+	printf("5\n");
 	if(letter == 65){
 		i = 0;
 		l = 0;
+		printf("3A\n");
 	}else if(letter == 66){
 		i = 0;
 		l = parameters->SO_BASE-1;
+		printf("3B\n");
 	}else if(letter == 67){
 		i = 0;
 		l = (parameters->SO_BASE/4)-1;
@@ -243,9 +379,9 @@ void set_pawns(int letter, int parameters_id, int player_msg_id, int chessboard_
 		l = (parameters->SO_BASE/4)-1;
 		
 		wall = l + l + l;
-		printf("L per la D vale:     ----  --  letter:%d\n", letter);
+		/*printf("L per la D vale:     ----  --  letter:%d\n", letter);
 	}else{
-		printf("-----------------DEFAULT----------------------\n");
+		/*printf("-----------------DEFAULT----------------------\n");
 	}
 	
 	for(k = 0; k < parameters->SO_NUM_P; k++){
@@ -284,27 +420,29 @@ void set_pawns(int letter, int parameters_id, int player_msg_id, int chessboard_
 			break;
 
 			default:
-				while(1){
+				/*while(1){
 					message_to_pawn.y = rand() % parameters->SO_ALTEZZA;
 					message_to_pawn.x = rand() % parameters->SO_BASE;
 					if(chessboard[message_to_pawn.y * parameters->SO_BASE + message_to_pawn.x] == 1)
 						break;
 				}
+				message_to_pawn.y = 0;
+				message_to_pawn.x = 0;
 			break;
 
-		}
-		
+		}*/
+		printf("STO PER INSERIRE NELLA MATRICE: (%d, %d) => %d\n",message_to_pawn.y, message_to_pawn.x, message_to_pawn.y * parameters->SO_BASE + message_to_pawn.x  );
 		chessboard[message_to_pawn.y * parameters->SO_BASE + message_to_pawn.x] = -letter;
 		
-		semctl(chessboard_sem_id, message_to_pawn.y * parameters->SO_BASE + message_to_pawn.x, SETVAL, 0);
+		/*semctl(chessboard_sem_id, message_to_pawn.y * parameters->SO_BASE + message_to_pawn.x, SETVAL, 0);*/
 
 
 			    /*message_to_pawn.strategy = "NSWEEWSN"*/
-
+		printf("STO PER INVIARE\n");
 		test = msgsnd(player_msg_id, &message_to_pawn, sizeof(int) * 2, 0);
 		if(test == -1){
 			fprintf(stderr, "MSGSEND: ret: %d, errno: %d, %s\n", test, errno, strerror(errno));
 		}	    
-    }   
+       
     
 }

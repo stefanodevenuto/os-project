@@ -5,15 +5,16 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-                       /*       ________ _________ ___ ____________  */
-#define MAIN_SEM 55553 /* ---> | MASTER | SYNCHRO | A | TURN_ENTRY | */
-#define MASTER 0       /*       -------- --------- --- ------------  */  
+                       /*       ________ _________ ___  */
+#define MAIN_SEM 55553 /* ---> | MASTER | SYNCHRO | A | */
+#define MASTER 0       /*       -------- --------- ---  */  
 #define SYNCHRO 1
 #define A 2
-#define TURN_ENTRY 3
+
 #define CHESSBOARD_MEM_KEY 44445
 #define CHESSBOARD_SEM_KEY 33334
 #define PARAMETERS_MEM_KEY 22223
+#define MUTUAL_TURN 54545
 #define LEN_X_Y 8
 #define STRAT_LEN 300
 
@@ -36,6 +37,12 @@ struct message{
 	int x;
 	int y;
 	/*char * strategy;*/
+};
+
+struct position{
+    int x;
+    int y;
+    /*char * strategy;*/
 };
 
 struct strategy{
@@ -85,6 +92,8 @@ int sem_set_val(int sem_id, int sem_num, int sem_val);
  */
 int sem_reserve_1(int sem_id, int sem_num);
 
+
+int sem_reserve_1_no_wait(int sem_id, int sem_num);
 /*
  * Try to access the resource
  * INPUT:

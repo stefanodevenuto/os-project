@@ -41,6 +41,7 @@ int main(int argc, char *argv[]){
 
 		     /* Receiving coordinates and accessing chessboard*/
 	/* ---------------------------------------------------------------- */
+	printf("STO PER RICEVERE LE COORDINATE\n");
 	a = msgrcv(player_msg_id, &message_to_pawn, LEN_X_Y, type, 0);
 	if(a == -1){
 		fprintf(stderr, "MSGRCV: ret: %d, errno: %d, %s\n", a, errno, strerror(errno));
@@ -61,6 +62,7 @@ int main(int argc, char *argv[]){
 
 					/* Wait for strategy */
     /* ----------------------------------------------------------------- */
+    printf("STO PER LEGGERE LA STRATEGIA\n");
 	a = msgrcv(player_msg_id, &strategy_pawn,sizeof(char) * STRAT_LEN, type, 0);
 	if(a == -1){
 		fprintf(stderr, "MSGRCV: ret: %d, errno: %d, %s\n", a, errno, strerror(errno));

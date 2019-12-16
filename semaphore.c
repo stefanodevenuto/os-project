@@ -30,6 +30,15 @@ int sem_reserve_1(int sem_id, int sem_num) {
 	return semop(sem_id, &sops, 1);
 }
 
+int sem_reserve_1_no_wait(int sem_id, int sem_num) {
+	struct sembuf sops;
+	
+	sops.sem_num = sem_num;
+	sops.sem_op = -1;
+	sops.sem_flg = IPC_NOWAIT;
+	return semop(sem_id, &sops, 1);
+}
+
 int sem_reserve_0(int sem_id, int sem_num) {
 	struct sembuf sops;
 	

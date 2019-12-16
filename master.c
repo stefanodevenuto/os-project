@@ -44,8 +44,10 @@ int main(int argc, char const *argv[]){
     int chessboard_sem_id;
 
     int master_sem_id;
+    int turn_sem_id;
+    char sprintf_sem_entry[40];
 
-    char * args[4]; 
+    char * args[5]; 
 
     int flag_number;
     int total_score;
@@ -60,8 +62,8 @@ int main(int argc, char const *argv[]){
     char my_string[100];*/
 
     /* Setting the enviroment variable 
-    set_env();
-
+    set_env();*/
+printf("PID MAster: %d\n", getpid());
     /* Unset the buffering of the streams stdout and stderr*/
     setvbuf(stdout, NULL, _IONBF, 0);
 	setvbuf(stderr, NULL, _IONBF, 0);
@@ -78,10 +80,18 @@ int main(int argc, char const *argv[]){
     args[0] = "./player";
     args[1] = sprintf_parameters_id;
     /* Setting in for for fork the args[2]*/
-    args[3] = NULL;
+    /* Setting in for loop to know in whic entry of semaphore you have to wait*/ 
+    args[4] = NULL;
+
 
     /*print_chessboard();
 
+
+                /* Setting mutual exclusion semaphore for turns */
+    /* -------------------------------------------------------------------- */
+    turn_sem_id = semget(MUTUAL_TURN, parameters->SO_NUM_G, 0666 | IPC_CREAT);
+    semctl(turn_sem_id, parameters->SO_NUM_G-1, SETVAL, 1);
+    /* -------------------------------------------------------------------- */
     
                         /* Setting up chessboard */
     /* -------------------------------------------------------------------- */
@@ -104,7 +114,7 @@ int main(int argc, char const *argv[]){
     
 
 
-    /*printf("player number: %d\n", parameters[SO_NUM_G]);
+
 	/*Creation of the Players*/
     for (index_child = 0; index_child < parameters->SO_NUM_G; index_child++){
     	switch(fork()){
@@ -114,6 +124,8 @@ int main(int argc, char const *argv[]){
     		case 0:
                 sprintf (sprintf_number_player, "%d", 64 + index_child+1);
                 args[2] = sprintf_number_player;
+                sprintf (sprintf_sem_entry, "%d", index_child);
+                args[3] = sprintf_sem_entry;
     			if(execve("./player", args, NULL)){
     				fprintf(stderr, "Execve() failed #%d : %s\n", errno, strerror(errno));
     				exit(EXIT_FAILURE);
@@ -122,6 +134,7 @@ int main(int argc, char const *argv[]){
 				break;
     	}
     }
+
 
                         /* Setting semaphores*/
     /* ----------------------------------------------------------------------------*/
@@ -132,8 +145,11 @@ int main(int argc, char const *argv[]){
     sem_set_val(master_sem_id, MASTER, parameters->SO_NUM_G);
 
     /* Used to implement the mutual exclusion for the players positioning phase*/
-    sem_set_val(master_sem_id, TURN_ENTRY, 1);
+    
     /* ----------------------------------------------------------------------------*/
+
+
+                        
 
 
                         /* Wait players */    
@@ -189,10 +205,10 @@ int main(int argc, char const *argv[]){
     sem_reserve_0(master_sem_id, A);
     /* -------------------------------------------------------------------- */
 
+
                     /* Unblock players and START GAME */
     /* -------------------------------------------------------------------- */
-    sem_set_val(master_sem_id, MASTER, parameters->SO_NUM_G);
-    
+    sem_set_val(master_sem_id, MASTER, parameters->SO_NUM_G);    
     /* -------------------------------------------------------------------- */
 
     printf("Values:\n");
