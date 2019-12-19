@@ -11,6 +11,7 @@
 #include "semaphore.h"
 
 int set_parameters();
+void calculate_position(int parameters_id);
 
 int main(int argc, char const *argv[]){
 
@@ -112,6 +113,10 @@ printf("PID MAster: %d\n", getpid());
     }
     /* -------------------------------------------------------------------- */
     
+                    /* Calculation of Pawn Positions */
+    /* -------------------------------------------------------------------- */
+    calculate_position(parameters_id);
+    /* -------------------------------------------------------------------- */
 
 
 
@@ -329,4 +334,66 @@ int set_parameters(){
     
 
     return parameters_id; /* Returns the id of parameters */
+}
+
+void calculate_position(int parameters_id){
+    int pos = 0;
+    int i;
+    int x_step;
+    int y_step;
+    struct param * parameters;
+    int row;
+    int initial_x;
+    int initial_y;
+    int j;
+    int pawns_per_row;
+    int pawns_per_column;
+    struct position * positions;
+    int positions_mem_id;
+    
+    parameters = shmat(parameters_id,NULL,0);
+
+    if(parameters->SO_BASE == 60){
+        pawns_per_row = 5;
+        pawns_per_column = 4;
+
+        x_step = parameters->SO_BASE / pawns_per_row;
+        y_step = parameters->SO_ALTEZZA / pawns_per_column;
+
+        initial_x = x_step / 2;
+        initial_y = y_step / 2 + 1;
+    }else{
+        pawns_per_row = 40;
+        pawns_per_column = 40;
+
+        x_step = parameters->SO_BASE / pawns_per_row;
+        y_step = parameters->SO_ALTEZZA / pawns_per_column;
+
+        initial_x = x_step / 2;
+        initial_y = y_step / 2;
+    }
+
+    positions_mem_id = shmget(POSITION_MEM_KEY,sizeof(positions) * pawns_per_row * pawns_per_column, 0666 | IPC_CREAT);
+    positions = (struct position *)shmat(positions_mem_id,NULL,0);
+
+        
+    for(i=0; i<pawns_per_column; i++){
+        for(j=0; j<pawns_per_row; j++){
+            if(j == 0){
+                positions[i * parameters->SO_BASE + j].x = initial_x;
+            }
+            else{
+                positions[i * parameters->SO_BASE + j].x = positions[i * parameters->SO_BASE + (j-1)].x + x_step;
+            }
+            positions[i * parameters->SO_BASE + j].y = initial_y;
+        }
+        initial_y += y_step;
+    }
+
+    /*for(i=0; i<4; i++){
+        for(j=0; j<5; j++){
+            printf("Position (%d,%d) (%d,%d)\n",i,j,positions[i * parameters->SO_BASE + j].x, positions[i * parameters->SO_BASE + j].y );
+        }   
+    }*/
+    /*printf("Finito calculate_position\n");*/
 }
