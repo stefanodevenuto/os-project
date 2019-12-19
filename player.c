@@ -130,25 +130,13 @@ int main(int argc, char *argv[]){
     					/* Critical section players */
     /* --------------------------------------------------------------------- */
     for(i = 0; i < parameters->SO_NUM_P; i++){
-    	if(turn_sem_entry == 0){
-    		sem_reserve_1(turn_sem_id, parameters->SO_NUM_G - 1);	
-    	}
-    	else{
-    		sem_reserve_1(turn_sem_id, (turn_sem_entry-1)% parameters->SO_NUM_G);
-    	}
-			    set_pawns(player_type, parameters_id, player_msg_id, chessboard_mem_id, chessboard_sem_id, positions);
-			    
-			    sprintf (sprintf_letter, "%d", player_type);
-				args[3] = sprintf_letter;
-		    	printf("%c ", player_type);
-		    	
-		    	printf("CHI STO LIBERANDO: %d\n", turn_sem_entry);
-	    	sem_release(turn_sem_id, turn_sem_entry);
-	    	printf("%d\n", semctl(turn_sem_id, turn_sem_entry, GETVAL)); 
-	    for(j = 0; j < parameters->SO_NUM_G; j++){
-	    	printf("%d", semctl(turn_sem_id, j, GETVAL));
-	    }
-	    printf("\n");
+    	sem_reserve_1(turn_sem_id, (turn_sem_entry-1 + parameters->SO_NUM_G)% parameters->SO_NUM_G);
+			set_pawns(player_type, parameters_id, player_msg_id, chessboard_mem_id, chessboard_sem_id, positions);
+			sprintf (sprintf_letter, "%d", player_type);
+			args[3] = sprintf_letter;
+		    /*printf("%c ", player_type);	
+		    printf("CHI STO LIBERANDO: %d\n", turn_sem_entry);*/
+	    sem_release(turn_sem_id, turn_sem_entry);
 	}
     /* --------------------------------------------------------------------- */
 
@@ -203,9 +191,9 @@ int main(int argc, char *argv[]){
 		
 		strncpy(strategy_pawn.strategy, "NNWENESS", 9);
 		
-		fprintf(stderr, "MSGSEND: ret: %d, errno: %d, %s\n", test, errno, strerror(errno));
+		/*fprintf(stderr, "MSGSEND: ret: %d, errno: %d, %s\n", test, errno, strerror(errno));*/
 		
-		printf("STAMPO STRATEGY DA MANDARE: %s\n", strategy_pawn.strategy);
+		/*printf("STAMPO STRATEGY DA MANDARE: %s\n", strategy_pawn.strategy);*/
 
 		test = msgsnd(player_msg_id, &strategy_pawn, sizeof(char) *  STRAT_LEN, 0);
 		if(test == -1){
@@ -305,7 +293,7 @@ struct position * calculate_position(int parameters_id){
         	printf("Position (%d,%d) (%d,%d)\n",i,j,positions[i * parameters->SO_BASE + j].x, positions[i * parameters->SO_BASE + j].y );
         }   
     }*/
-    printf("Finito calculate_position\n");
+    /*printf("Finito calculate_position\n");*/
     return positions;
 }
 
@@ -354,7 +342,7 @@ void set_pawns(int letter, int parameters_id, int player_msg_id, int chessboard_
 	    if(test != -1)
 	    	break;
 	}
-	printf("Type Pedina: %d\n", k);
+	/*printf("Type Pedina: %d\n", k);*/
 	k++;
     /*if(letter == 69)
     	/*printf("DEFAULT----------------------\n");
@@ -431,14 +419,14 @@ void set_pawns(int letter, int parameters_id, int player_msg_id, int chessboard_
 			break;
 
 		}*/
-		printf("STO PER INSERIRE NELLA MATRICE: (%d, %d) => %d\n",message_to_pawn.y, message_to_pawn.x, message_to_pawn.y * parameters->SO_BASE + message_to_pawn.x  );
+		/*printf("STO PER INSERIRE NELLA MATRICE: (%d, %d) => %d\n",message_to_pawn.y, message_to_pawn.x, message_to_pawn.y * parameters->SO_BASE + message_to_pawn.x  );*/
 		chessboard[message_to_pawn.y * parameters->SO_BASE + message_to_pawn.x] = -letter;
 		
 		/*semctl(chessboard_sem_id, message_to_pawn.y * parameters->SO_BASE + message_to_pawn.x, SETVAL, 0);*/
 
 
 			    /*message_to_pawn.strategy = "NSWEEWSN"*/
-		printf("STO PER INVIARE\n");
+		/*printf("STO PER INVIARE\n");*/
 		test = msgsnd(player_msg_id, &message_to_pawn, sizeof(int) * 2, 0);
 		if(test == -1){
 			fprintf(stderr, "MSGSEND: ret: %d, errno: %d, %s\n", test, errno, strerror(errno));
