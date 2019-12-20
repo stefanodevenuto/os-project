@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -8,10 +9,12 @@
 #include <string.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
+#include <signal.h>
 #include "semaphore.h"
 
 int set_parameters();
-void calculate_position(int parameters_id);
+void print_chessboard(int rows, int columns, int * chessboard, struct param * parameters, int chessboard_sem_id);
+int calculate_position(int parameters_id);
 
 int main(int argc, char const *argv[]){
 
@@ -58,6 +61,10 @@ int main(int argc, char const *argv[]){
     int sum;
 
     int switch_color_pawn;
+    int positions_mem_id;
+    struct sigaction sa;
+
+    sigaction(SIGINT, &sa, NULL);
 	
     /*int semid;
     char my_string[100];*/
@@ -73,6 +80,7 @@ printf("PID MAster: %d\n", getpid());
 	
     parameters_id = set_parameters();
     parameters = shmat(parameters_id,NULL,0);
+    printf("parameters->SO_NUM_G: FFFF%d\n", parameters->SO_NUM_G);
 
     sprintf (sprintf_parameters_id, "%d", parameters_id);
 
@@ -115,13 +123,14 @@ printf("PID MAster: %d\n", getpid());
     
                     /* Calculation of Pawn Positions */
     /* -------------------------------------------------------------------- */
-    calculate_position(parameters_id);
+    positions_mem_id = calculate_position(parameters_id);
     /* -------------------------------------------------------------------- */
 
 
 
 	/*Creation of the Players*/
     for (index_child = 0; index_child < parameters->SO_NUM_G; index_child++){
+        printf("parameters->SO_NUM_G: %d\n", parameters->SO_NUM_G);
     	switch(fork()){
     		case -1:
     			fprintf(stderr, "Failed to Fork Players%s\n");
@@ -199,6 +208,8 @@ printf("PID MAster: %d\n", getpid());
         }
     }
     printf("Somma: %d\n", sum);
+
+    print_chessboard(rows, columns, chessboard, parameters, chessboard_sem_id);
     /* -------------------------------------------------------------------- */
 
 
@@ -216,9 +227,30 @@ printf("PID MAster: %d\n", getpid());
     sem_set_val(master_sem_id, MASTER, parameters->SO_NUM_G);    
     /* -------------------------------------------------------------------- */
 
+    
+    
+    /* Wait the dead children*/
+    while((select = wait(NULL)) != -1);
+
+    print_chessboard(rows, columns, chessboard, parameters, chessboard_sem_id);
+	
+    semctl(master_sem_id,0, IPC_RMID);
+    semctl(turn_sem_id, 0, IPC_RMID);
+    semctl(chessboard_sem_id, 0, IPC_RMID);
+    shmctl(chessboard_mem_id, IPC_RMID, NULL);
+    shmctl(parameters_id, IPC_RMID, NULL);
+    shmctl(positions_mem_id, IPC_RMID, NULL);
+
+
+
+    
+	return 0;
+}
+
+void print_chessboard(int rows, int columns, int * chessboard, struct param * parameters, int chessboard_sem_id ){
+    int i,j,switch_color_pawn;
     printf("Values:\n");
     for(i=0; i<rows; i++){
-        
         for(j=0; j<columns; j++){
             switch_color_pawn = chessboard[i * parameters->SO_BASE + j];
             if( switch_color_pawn < 0){
@@ -256,13 +288,13 @@ printf("PID MAster: %d\n", getpid());
         }
         printf("\n");
     }
-    printf("Semaphore values:\n");
+    /*printf("Semaphore values:\n");
     for(i=0; i<rows; i++){
         for(j=0; j<columns; j++){
             if(semctl(chessboard_sem_id, i * parameters->SO_BASE + j, GETVAL)){
                 printf("%d ", semctl(chessboard_sem_id, i * parameters->SO_BASE + j, GETVAL));
             }else{
-                printf("\033[0;31m"); /* Change color to RED*/
+                printf("\033[0;31m"); /* Change color to  
                 printf("%d ", semctl(chessboard_sem_id, i * parameters->SO_BASE + j, GETVAL));
                 printf("\033[0m");
             }
@@ -270,14 +302,7 @@ printf("PID MAster: %d\n", getpid());
 
         }
         printf("\n");
-    }
-    
-    /* Wait the dead children*/
-    while((select = wait(NULL)) != -1);
-		/*printf("Process %d\n", select);*/
-
-    
-	return 0;
+    }*/
 }
 
 int set_parameters(){
@@ -319,7 +344,7 @@ int set_parameters(){
 
     
 
-    /*printf("%d\n",parameters->SO_NUM_G);
+    printf("%d\n",parameters->SO_NUM_G);
     printf("%d\n",parameters->SO_NUM_P);
     printf("%d\n",parameters->SO_MAX_TIME);
     printf("%d\n",parameters->SO_BASE);
@@ -330,13 +355,13 @@ int set_parameters(){
     printf("%d\n",parameters->SO_N_MOVES);
     printf("%d\n",parameters->SO_MIN_HOLD_NSEC);
 
-    printf("Numero giocatori: %d\n",parameters->SO_NUM_G);*/
+    printf("Numero giocatori: %d\n",parameters->SO_NUM_G);
     
 
     return parameters_id; /* Returns the id of parameters */
 }
 
-void calculate_position(int parameters_id){
+int calculate_position(int parameters_id){
     int pos = 0;
     int i;
     int x_step;
@@ -396,4 +421,11 @@ void calculate_position(int parameters_id){
         }   
     }*/
     /*printf("Finito calculate_position\n");*/
+
+    return positions_mem_id;
+}
+
+void handle_signal(int signal) {
+    printf("SIGINT\n");
+
 }

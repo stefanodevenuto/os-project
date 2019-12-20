@@ -186,7 +186,7 @@ int main(int argc, char *argv[]){
 	for(i=0; i < parameters->SO_NUM_P; i++){
 		strategy_pawn.mtype = i+1;
 		
-		strncpy(strategy_pawn.strategy, "NNWENESS", 9);
+		strncpy(strategy_pawn.strategy, "E", 9);
 		
 		/*fprintf(stderr, "MSGSEND: ret: %d, errno: %d, %s\n", test, errno, strerror(errno));*/
 		
@@ -215,7 +215,10 @@ int main(int argc, char *argv[]){
 	/* -------------------------------------------------------------------------- */
        
 
-    while((select = wait(NULL)) != -1);    
+    while((select = wait(NULL)) != -1);
+
+    semctl(player_sem_id, 0, IPC_RMID);
+    msgctl(player_msg_id, IPC_RMID, NULL);
     
 	exit(EXIT_SUCCESS);
 }
@@ -256,17 +259,24 @@ void set_pawns(int letter, int parameters_id, int player_msg_id, int chessboard_
 
     chessboard = shmat(chessboard_mem_id,NULL,0);
 
+    srand(getpid());
+
     positions_mem_id = shmget(POSITION_MEM_KEY,sizeof(positions) * pawns_per_row * pawns_per_column, 0666 | IPC_CREAT);
     positions = (struct position *)shmat(positions_mem_id,NULL,0);
 
-    
+    if(parameters->SO_BASE == 60){
+		pawns_per_row = 5;
+		pawns_per_column = 4;
+	}else{
+		pawns_per_row = 40;
+		pawns_per_column = 40;
+	}
     
     	while(1){
-    		i = rand() % parameters->SO_ALTEZZA;
-    		j = rand() % parameters->SO_BASE;
-    		
+    		i = rand() % pawns_per_column;
+    		j = rand() % pawns_per_row;
 	    	test = sem_reserve_1_no_wait(chessboard_sem_id, positions[i * parameters->SO_BASE + j].y * parameters->SO_BASE + positions[i * parameters->SO_BASE + j].x);
-	    	if(test != -1 && errno == EAGAIN){
+	    	if(test != -1){
 	    		message_to_pawn.mtype = k+1;
 	    		message_to_pawn.y = positions[i * parameters->SO_BASE + j].y;
 				message_to_pawn.x = positions[i * parameters->SO_BASE + j].x;;
@@ -274,11 +284,11 @@ void set_pawns(int letter, int parameters_id, int player_msg_id, int chessboard_
 	    	}
 	    }
 	    		
-	   k++;
+	    	
 	    
 	
 	/*printf("Type Pedina: %d\n", k);*/
-	
+	k++;
     /*if(letter == 69)
     	/*printf("DEFAULT----------------------\n");
 
