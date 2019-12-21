@@ -41,6 +41,8 @@ int main(int argc, char *argv[]){
 	type = atol(argv[2]);
 	player_letter = -atol(argv[3]);
 
+	printf("SONO UNA PAWN\n");
+
 
 
 		  /* Getting chessboard, player semaphore and player queue*/

@@ -62,9 +62,7 @@ int main(int argc, char const *argv[]){
 
     int switch_color_pawn;
     int positions_mem_id;
-    struct sigaction sa;
-
-    sigaction(SIGINT, &sa, NULL);
+    
 	
     /*int semid;
     char my_string[100];*/
@@ -80,7 +78,8 @@ printf("PID MAster: %d\n", getpid());
 	
     parameters_id = set_parameters();
     parameters = shmat(parameters_id,NULL,0);
-    printf("parameters->SO_NUM_G: FFFF%d\n", parameters->SO_NUM_G);
+    printf("parameters->SO_NUM_G: DOPO ACCESS%d\n", parameters->SO_NUM_G);
+    
 
     sprintf (sprintf_parameters_id, "%d", parameters_id);
 
@@ -121,13 +120,14 @@ printf("PID MAster: %d\n", getpid());
     }
     /* -------------------------------------------------------------------- */
     
+    printf("parameters->SO_NUM_G: PRIMA calculate_position %d\n", parameters->SO_NUM_G);
                     /* Calculation of Pawn Positions */
     /* -------------------------------------------------------------------- */
     positions_mem_id = calculate_position(parameters_id);
     /* -------------------------------------------------------------------- */
 
 
-
+    printf("parameters->SO_NUM_G: PRIMA FOR%d\n", parameters->SO_NUM_G);
 	/*Creation of the Players*/
     for (index_child = 0; index_child < parameters->SO_NUM_G; index_child++){
         printf("parameters->SO_NUM_G: %d\n", parameters->SO_NUM_G);
@@ -234,12 +234,7 @@ printf("PID MAster: %d\n", getpid());
 
     print_chessboard(rows, columns, chessboard, parameters, chessboard_sem_id);
 	
-    semctl(master_sem_id,0, IPC_RMID);
-    semctl(turn_sem_id, 0, IPC_RMID);
-    semctl(chessboard_sem_id, 0, IPC_RMID);
-    shmctl(chessboard_mem_id, IPC_RMID, NULL);
-    shmctl(parameters_id, IPC_RMID, NULL);
-    shmctl(positions_mem_id, IPC_RMID, NULL);
+    
 
 
 
@@ -288,13 +283,13 @@ void print_chessboard(int rows, int columns, int * chessboard, struct param * pa
         }
         printf("\n");
     }
-    /*printf("Semaphore values:\n");
+    printf("Semaphore values:\n");
     for(i=0; i<rows; i++){
         for(j=0; j<columns; j++){
             if(semctl(chessboard_sem_id, i * parameters->SO_BASE + j, GETVAL)){
                 printf("%d ", semctl(chessboard_sem_id, i * parameters->SO_BASE + j, GETVAL));
             }else{
-                printf("\033[0;31m"); /* Change color to  
+                printf("\033[0;31m");
                 printf("%d ", semctl(chessboard_sem_id, i * parameters->SO_BASE + j, GETVAL));
                 printf("\033[0m");
             }
@@ -302,7 +297,7 @@ void print_chessboard(int rows, int columns, int * chessboard, struct param * pa
 
         }
         printf("\n");
-    }*/
+    }
 }
 
 int set_parameters(){
@@ -377,6 +372,16 @@ int calculate_position(int parameters_id){
     int positions_mem_id;
     
     parameters = shmat(parameters_id,NULL,0);
+    printf("%d\n",parameters->SO_NUM_G);
+    printf("%d\n",parameters->SO_NUM_P);
+    printf("%d\n",parameters->SO_MAX_TIME);
+    printf("%d\n",parameters->SO_BASE);
+    printf("%d\n",parameters->SO_ALTEZZA);
+    printf("%d\n",parameters->SO_FLAG_MIN);
+    printf("%d\n",parameters->SO_FLAG_MAX);
+    printf("%d\n",parameters->SO_ROUND_SCORE);
+    printf("%d\n",parameters->SO_N_MOVES);
+    printf("%d\n",parameters->SO_MIN_HOLD_NSEC);
 
     if(parameters->SO_BASE == 60){
         pawns_per_row = 5;
@@ -397,7 +402,16 @@ int calculate_position(int parameters_id){
         initial_x = x_step / 2;
         initial_y = y_step / 2;
     }
-
+    printf("%d\n",parameters->SO_NUM_G);
+    printf("%d\n",parameters->SO_NUM_P);
+    printf("%d\n",parameters->SO_MAX_TIME);
+    printf("%d\n",parameters->SO_BASE);
+    printf("%d\n",parameters->SO_ALTEZZA);
+    printf("%d\n",parameters->SO_FLAG_MIN);
+    printf("%d\n",parameters->SO_FLAG_MAX);
+    printf("%d\n",parameters->SO_ROUND_SCORE);
+    printf("%d\n",parameters->SO_N_MOVES);
+    printf("%d\n",parameters->SO_MIN_HOLD_NSEC);
     positions_mem_id = shmget(POSITION_MEM_KEY,sizeof(positions) * pawns_per_row * pawns_per_column, 0666 | IPC_CREAT);
     positions = (struct position *)shmat(positions_mem_id,NULL,0);
 
@@ -414,6 +428,7 @@ int calculate_position(int parameters_id){
         }
         initial_y += y_step;
     }
+    printf("DOPO: ----------------------%d\n",parameters->SO_NUM_G);
 
     /*for(i=0; i<4; i++){
         for(j=0; j<5; j++){
@@ -423,9 +438,4 @@ int calculate_position(int parameters_id){
     /*printf("Finito calculate_position\n");*/
 
     return positions_mem_id;
-}
-
-void handle_signal(int signal) {
-    printf("SIGINT\n");
-
 }

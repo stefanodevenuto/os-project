@@ -86,7 +86,7 @@ int main(int argc, char *argv[]){
     
     				/* Setting pawns parameters */
     /* -------------------------------------------------------- */
-    args[0] = "./player";
+    args[0] = "./pawn";
     args[1] = sprintf_parameters_id;
     /* wait type on args[2]*/
     /* wait letter to pawn on args[3]*/
@@ -127,6 +127,7 @@ int main(int argc, char *argv[]){
     					/* Critical section players */
     /* --------------------------------------------------------------------- */
     for(i = 0; i < parameters->SO_NUM_P; i++){
+    	
     	sem_reserve_1(turn_sem_id, (turn_sem_entry-1 + parameters->SO_NUM_G)% parameters->SO_NUM_G);
 			set_pawns(player_type, parameters_id, player_msg_id, chessboard_mem_id, chessboard_sem_id);
 			sprintf (sprintf_letter, "%d", player_type);
@@ -186,7 +187,7 @@ int main(int argc, char *argv[]){
 	for(i=0; i < parameters->SO_NUM_P; i++){
 		strategy_pawn.mtype = i+1;
 		
-		strncpy(strategy_pawn.strategy, "E", 9);
+		strncpy(strategy_pawn.strategy, "NSWEEWSN", 9);
 		
 		/*fprintf(stderr, "MSGSEND: ret: %d, errno: %d, %s\n", test, errno, strerror(errno));*/
 		
