@@ -5,15 +5,17 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-                       /*       ________ _________ ___  */
-#define MAIN_SEM 55553 /* ---> | MASTER | SYNCHRO | A | */
-#define MASTER 0       /*       -------- --------- ---  */  
+                       /*       ________ _________ ___  ______  */
+#define MAIN_SEM 55553 /* ---> | MASTER | SYNCHRO | A | START | */
+#define MASTER 0       /*       -------- --------- --- -------  */  
 #define SYNCHRO 1
 #define A 2
+#define START 3
 
 #define CHESSBOARD_MEM_KEY 44445
 #define CHESSBOARD_SEM_KEY 33334
 #define PARAMETERS_MEM_KEY 22223
+#define POSITIONS_MEM_KEY 45632
 #define MUTUAL_TURN 54545
 #define LEN_X_Y 8
 #define STRAT_LEN 300

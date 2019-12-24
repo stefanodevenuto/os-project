@@ -12,6 +12,7 @@
 #include "semaphore.h"
 
 int main(int argc, char *argv[]){
+
 	int parameters_id;
 	struct param * parameters;
 	int player_sem_id;
@@ -41,11 +42,12 @@ int main(int argc, char *argv[]){
 
 		     /* Receiving coordinates and accessing chessboard*/
 	/* ---------------------------------------------------------------- */
-	printf("STO PER RICEVERE LE COORDINATE\n");
+	/*printf("STO PER RICEVERE LE COORDINATE\n");*/
 	a = msgrcv(player_msg_id, &message_to_pawn, LEN_X_Y, type, 0);
 	if(a == -1){
 		fprintf(stderr, "MSGRCV: ret: %d, errno: %d, %s\n", a, errno, strerror(errno));
 	}
+
 	
 	if((chessboard_mem_id = shmget(CHESSBOARD_MEM_KEY,sizeof(int) * parameters->SO_ALTEZZA * parameters->SO_BASE, 0666)) == -1){
 		if(errno == ENOENT)
@@ -62,12 +64,12 @@ int main(int argc, char *argv[]){
 
 					/* Wait for strategy */
     /* ----------------------------------------------------------------- */
-    printf("STO PER LEGGERE LA STRATEGIA\n");
+    /*printf("STO PER LEGGERE LA STRATEGIA\n");*/
 	a = msgrcv(player_msg_id, &strategy_pawn,sizeof(char) * STRAT_LEN, type, 0);
 	if(a == -1){
 		fprintf(stderr, "MSGRCV: ret: %d, errno: %d, %s\n", a, errno, strerror(errno));
 	}
-	printf("Pedina riceve strategia: %s\n", strategy_pawn.strategy);
+	/*printf("Pedina riceve strategia: %s\n", strategy_pawn.strategy);*/
     /* ----------------------------------------------------------------- */
 
 
@@ -90,14 +92,13 @@ int main(int argc, char *argv[]){
 
 					/* Wait for 1 on synchro */
     /* ----------------------------------------------------------------- */
-    if((master_sem_id = semget(MAIN_SEM, 3, 0666)) == -1){
-    	printf("DIO CANE 2\n");
+    if((master_sem_id = semget(MAIN_SEM, 4, 0666)) == -1){
 		if(errno == ENOENT)
 			fprintf(stderr, "Failed access to memory for pawns\n");
 		exit(EXIT_FAILURE);
 	}
 	
-	sem_reserve_1(master_sem_id, SYNCHRO);
+	sem_reserve_1(master_sem_id, START);
     /* ----------------------------------------------------------------- */
 
 	/*
