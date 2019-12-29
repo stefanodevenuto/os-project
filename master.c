@@ -11,6 +11,7 @@
 #include <sys/shm.h>
 #include <sys/types.h>
 #include <signal.h>
+#include <math.h>
 #include "semaphore.h"
 
 int set_parameters();
@@ -244,7 +245,7 @@ printf("PID MAster: %d\n", getpid());
 	return 0;
 }
 
-int calculate_position(int parameters_id,int chessboard_mem_id,int chessboard_sem_id, int rows, int columns){
+/*int calculate_position(int parameters_id,int chessboard_mem_id,int chessboard_sem_id, int rows, int columns){
     int i;
     int j;
     int pawns_number;
@@ -292,6 +293,92 @@ int calculate_position(int parameters_id,int chessboard_mem_id,int chessboard_se
             }else count++;
         }
     }
+
+    return positions_id;
+}*/
+
+int calculate_position(int parameters_id,int chessboard_mem_id,int chessboard_sem_id, int rows, int columns){
+    struct param * parameters;
+    int perfect_matrix_rows;
+    int perfect_matrix_columns;
+    int positions_id;
+    int * positions;
+    int pawns_number;
+    int * chessboard;
+    int pawn_index;
+    int x_step;
+    int y_step;
+    int i;
+    int j;
+    int first;
+    int first_row;
+
+    parameters = shmat(parameters_id,NULL,0);
+    chessboard = shmat(chessboard_mem_id,NULL,0);
+
+    pawns_number = parameters->SO_NUM_P * parameters->SO_NUM_G;
+
+    positions_id = shmget(POSITIONS_MEM_KEY,sizeof(int) * pawns_number, 0666 | IPC_CREAT);
+    positions = shmat(positions_id,NULL,0);
+
+    
+
+    printf("pawns_number: %d\n", pawns_number);
+    printf("rad of pawns_number: %f, ceil: %f\n", sqrt(pawns_number), ceil(sqrt(pawns_number)));
+
+    perfect_matrix_columns = perfect_matrix_rows = ceil(sqrt(pawns_number));
+
+    if(perfect_matrix_columns > columns)
+        perfect_matrix_columns = pawns_number / perfect_matrix_columns;
+    if(perfect_matrix_rows > rows)
+        perfect_matrix_rows = pawns_number / perfect_matrix_rows;
+
+    if(pawns_number > rows * columns){
+        fprintf(stderr, "*** Error: Number of Pawns greater of the Chessboard Size\n");
+        exit(EXIT_FAILURE);
+    }
+
+    y_step = rows / perfect_matrix_rows;
+    x_step = columns / perfect_matrix_columns;
+
+
+
+    pawn_index = 0;
+    first = 0;
+    first_row = 0;
+
+    printf("perfect_matrix_rows: %d, perfect_matrix_columns: %d\n", perfect_matrix_rows, perfect_matrix_columns);
+    printf("y_step: %d, x_step: %d\n", y_step, x_step);
+
+    for(i = 0; i <= rows; i++){
+        if((first_row == 0 && (i >= (y_step / 2) && i % (y_step / 2) == 0)) || ((first_row == 1 && (i >= y_step && (i - y_step / 2 ) % y_step == 0)))){
+
+        if(first_row == 0) first_row = 1;
+        for(j = 0; j < columns; j++){
+            if(pawns_number != pawn_index){
+                
+                if(first==0 && (j >= x_step / 2 && j % (x_step /2 )== 0)){
+                    printf("Picko posizione FIRST(%d,%d)\n", i , j);
+                    first = 1;
+                    chessboard[(i-1) * columns + (j-1)] = -66;
+                    positions[pawn_index] = (i-1) * columns + (j-1);
+                    pawn_index++;                
+                }else if(first == 1 && (j >= x_step && (j - x_step / 2) % x_step == 0)){
+                    printf("Picko posizione (%d,%d)\n", i , j);
+                    chessboard[(i-1) * columns + (j-1)] = -66;
+                    positions[pawn_index] = (i-1) * columns + (j-1);
+                    pawn_index++;                
+                }
+            }else break;
+            
+        }
+    }
+        first = 0;
+        if(pawns_number == pawn_index) break;
+
+    }
+
+    print_chessboard(chessboard,chessboard_sem_id,parameters_id, rows, columns);
 
     return positions_id;
 }
@@ -368,22 +455,22 @@ void print_chessboard(int * chessboard, int chessboard_sem_id,int parameters_id,
                 switch(switch_color_pawn){
                     case -65:
                         printf("\033[1;31m");
-                        printf("  %c", -(chessboard[i * parameters->SO_BASE + j]));
+                        printf(" %c", -(chessboard[i * parameters->SO_BASE + j]));
                         printf("\033[0m");
                     break;
                     case -66:
                         printf("\033[1;34m");
-                        printf("  %c", -(chessboard[i * parameters->SO_BASE + j]));
+                        printf(" %c", -(chessboard[i * parameters->SO_BASE + j]));
                         printf("\033[0m");
                     break;
                     case -67:
                         printf("\033[1;36m");
-                        printf("  %c", -(chessboard[i * parameters->SO_BASE + j]));
+                        printf(" %c", -(chessboard[i * parameters->SO_BASE + j]));
                         printf("\033[0m");
                     break;
                     case -68:
                         printf("\033[1;32m");
-                        printf("  %c", -(chessboard[i * parameters->SO_BASE + j]));
+                        printf(" %c", -(chessboard[i * parameters->SO_BASE + j]));
                         printf("\033[0m");
                     break;
                     default:
@@ -392,10 +479,10 @@ void print_chessboard(int * chessboard, int chessboard_sem_id,int parameters_id,
                 }
                 
             }else if(switch_color_pawn > 0){
-                printf(" ⭐");
-                /*printf(" %d", chessboard[i * parameters->SO_BASE + j]);*/
+                /*printf(" ⭐");*/
+                printf(" %d", chessboard[i * parameters->SO_BASE + j]);
             }else{
-                printf("  _");
+                printf(" _");
             }
         }
         printf("\n");

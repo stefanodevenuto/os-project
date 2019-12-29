@@ -254,16 +254,20 @@ void set_pawns(int letter, int parameters_id, int player_msg_id, int chessboard_
 	int pawns;
 	struct param * parameters;
 	int success;
+	int pawns_number;
 	int x;
 	int y;
 
+	parameters = shmat(parameters_id,NULL,0);
 
-	positions_id = shmget(POSITIONS_MEM_KEY,sizeof(int) * rows * columns, 0666 | IPC_CREAT);
+	pawns_number = parameters->SO_NUM_G * parameters->SO_NUM_P;
+
+	positions_id = shmget(POSITIONS_MEM_KEY,sizeof(int) * pawns_number, 0666 | IPC_CREAT);
     positions = shmat(positions_id,NULL,0);
 
     chessboard = shmat(chessboard_mem_id,NULL,0);
 
-    parameters = shmat(parameters_id,NULL,0);
+    
 
     players = parameters->SO_NUM_G;
     pawns = parameters->SO_NUM_P;
