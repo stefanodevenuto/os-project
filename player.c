@@ -226,20 +226,6 @@ int main(int argc, char *argv[]){
 	exit(EXIT_SUCCESS);
 }
 
-/*
-	Column constant = number of pawns per row / SO_BASE;
-		Column (X) Step = First time = Column constant / 2;
-				   		  Next times = Column constant;
-
-	Row constant = number of pawns per column / SO_ALTEZZA;
-		Row (Y) Step = First time = if even:
-										(Row constant / 2) + 1;
-									else:
-										Row constant / 2
-				   	   Next times = Row constant;
-*/
-
-
 void set_pawns(int letter, int parameters_id, int player_msg_id, int chessboard_mem_id, int chessboard_sem_id, int rows, int columns){
 	static int num_pawn = 1;
 
@@ -279,8 +265,9 @@ void set_pawns(int letter, int parameters_id, int player_msg_id, int chessboard_
     	if(success != -1){
     		current_pos = positions[i];
     		message_to_pawn.mtype = num_pawn;
-    		message_to_pawn.x = current_pos % rows;
-    		message_to_pawn.y = current_pos / columns;
+    		message_to_pawn.x = current_pos % columns;
+    		message_to_pawn.y = (current_pos - message_to_pawn.x) / columns;
+    		
 
     		chessboard[current_pos] = -letter;
     		break;

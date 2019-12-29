@@ -24,6 +24,7 @@ int main(int argc, char const *argv[]){
     struct sigaction sa;
     int chessboard_rows;
     int chessboard_cols;
+    int test;
 
     int processes_number;
     int index_child;
@@ -235,7 +236,9 @@ printf("PID MAster: %d\n", getpid());
     /* Wait the dead children*/
     while((select = wait(NULL)) != -1);
 		/*printf("Process %d\n", select);*/
-    semctl(chessboard_sem_id, 0, IPC_RMID);
+    printf("STO PER CANCELLARE TUTTOOOOOOOOOOO\n");
+    test = semctl(chessboard_sem_id, 0, IPC_RMID);
+    fprintf(stderr,"test: %d, Errno: %d: %s\n", test, errno, strerror(errno));
     semctl(master_sem_id, 0, IPC_RMID);
     semctl(turn_sem_id, 0, IPC_RMID);
     shmctl(parameters_id, IPC_RMID, NULL);
@@ -299,8 +302,8 @@ printf("PID MAster: %d\n", getpid());
 
 int calculate_position(int parameters_id,int chessboard_mem_id,int chessboard_sem_id, int rows, int columns){
     struct param * parameters;
-    int perfect_matrix_rows;
-    int perfect_matrix_columns;
+    float perfect_matrix_rows;
+    float perfect_matrix_columns;
     int positions_id;
     int * positions;
     int pawns_number;
@@ -313,70 +316,98 @@ int calculate_position(int parameters_id,int chessboard_mem_id,int chessboard_se
     int first;
     int first_row;
 
+    int t_x;
+    int t_y;
+    int pawns_per_row;
+    int pawns_per_column;
+    int init_x;
+    int init_y;
+
     parameters = shmat(parameters_id,NULL,0);
     chessboard = shmat(chessboard_mem_id,NULL,0);
 
     pawns_number = parameters->SO_NUM_P * parameters->SO_NUM_G;
-
-    positions_id = shmget(POSITIONS_MEM_KEY,sizeof(int) * pawns_number, 0666 | IPC_CREAT);
-    positions = shmat(positions_id,NULL,0);
-
-    
-
-    printf("pawns_number: %d\n", pawns_number);
-    printf("rad of pawns_number: %f, ceil: %f\n", sqrt(pawns_number), ceil(sqrt(pawns_number)));
-
-    perfect_matrix_columns = perfect_matrix_rows = ceil(sqrt(pawns_number));
-
-    if(perfect_matrix_columns > columns)
-        perfect_matrix_columns = pawns_number / perfect_matrix_columns;
-    if(perfect_matrix_rows > rows)
-        perfect_matrix_rows = pawns_number / perfect_matrix_rows;
 
     if(pawns_number > rows * columns){
         fprintf(stderr, "*** Error: Number of Pawns greater of the Chessboard Size\n");
         exit(EXIT_FAILURE);
     }
 
-    y_step = rows / perfect_matrix_rows;
-    x_step = columns / perfect_matrix_columns;
+    positions_id = shmget(POSITIONS_MEM_KEY,sizeof(int) * pawns_number, 0666 | IPC_CREAT);
+    positions = shmat(positions_id,NULL,0);
 
+
+    /* 2 Player x 7 pawns */
+
+    printf("pawns_number: %d\n", pawns_number);
+    printf("rad of pawns_number: %f, ceil: %f\n", sqrt(pawns_number), ceil(sqrt(pawns_number)));
+
+    if(columns > rows){
+        perfect_matrix_columns = ceil(sqrt(pawns_number));
+        
+        perfect_matrix_rows = ceil(pawns_number / perfect_matrix_columns);
+    }else{
+        perfect_matrix_rows = ceil(sqrt(pawns_number));
+
+        perfect_matrix_columns = ceil(pawns_number / perfect_matrix_rows);
+    }
+    
+
+    if(perfect_matrix_columns > columns)
+        perfect_matrix_columns = ceil(pawns_number / perfect_matrix_columns);
+
+    if(perfect_matrix_rows > rows)
+        perfect_matrix_rows = ceil(pawns_number / perfect_matrix_rows);
+
+    
+    x_step = ceil(columns / perfect_matrix_columns);
+
+    y_step = rows / perfect_matrix_rows;
+
+    printf("perfect_matrix_columns: %f, perfect_matrix_rows: %f\n", perfect_matrix_columns, perfect_matrix_rows);
+
+    printf("x_step: %d, y_step: %d\n", x_step, y_step);
 
 
     pawn_index = 0;
     first = 0;
     first_row = 0;
 
-    printf("perfect_matrix_rows: %d, perfect_matrix_columns: %d\n", perfect_matrix_rows, perfect_matrix_columns);
-    printf("y_step: %d, x_step: %d\n", y_step, x_step);
+    init_x = x_step / 2;
+    init_y = y_step / 2;
 
-    for(i = 0; i <= rows; i++){
-        if((first_row == 0 && (i >= (y_step / 2) && i % (y_step / 2) == 0)) || ((first_row == 1 && (i >= y_step && (i - y_step / 2 ) % y_step == 0)))){
 
-        if(first_row == 0) first_row = 1;
-        for(j = 0; j < columns; j++){
-            if(pawns_number != pawn_index){
-                
-                if(first==0 && (j >= x_step / 2 && j % (x_step /2 )== 0)){
-                    printf("Picko posizione FIRST(%d,%d)\n", i , j);
-                    first = 1;
-                    chessboard[(i-1) * columns + (j-1)] = -66;
-                    positions[pawn_index] = (i-1) * columns + (j-1);
-                    pawn_index++;                
-                }else if(first == 1 && (j >= x_step && (j - x_step / 2) % x_step == 0)){
-                    printf("Picko posizione (%d,%d)\n", i , j);
-                    chessboard[(i-1) * columns + (j-1)] = -66;
-                    positions[pawn_index] = (i-1) * columns + (j-1);
-                    pawn_index++;                
+    /* To avoid the creation of a new fake row between a step */
+    while((perfect_matrix_rows - 1) * y_step + init_y >= rows && init_y > 0){
+        init_y -= 1;    
+    }
+    while((perfect_matrix_columns - 1) * x_step + init_x >= columns && init_x > 0){
+        init_x -= 1;
+    }
+    /* ------------------------------------------------------ */
+
+    printf("init_x: %d, init_y: %d\n",init_x, init_y );
+
+    for(i=0; i<perfect_matrix_rows; i++){
+        for(j=0; j<perfect_matrix_columns; j++){
+            if(pawn_index < pawns_number){
+                if(j == 0){
+                    t_x = init_x;
+                }else{
+                    t_x = (positions[pawn_index - 1] % columns) + x_step;
                 }
+                t_y = init_y;
+                positions[pawn_index] = t_y * columns + t_x;
+                chessboard[t_y * columns + t_x] = -66;
+                pawn_index++;
             }else break;
             
         }
+        if(pawn_index >= pawns_number) break;
+        init_y += y_step;
     }
-        first = 0;
-        if(pawns_number == pawn_index) break;
 
-    }
+    
 
     print_chessboard(chessboard,chessboard_sem_id,parameters_id, rows, columns);
 
