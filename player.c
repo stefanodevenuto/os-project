@@ -9,9 +9,10 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <sys/msg.h>
+#include <limits.h>
 #include "semaphore.h"
 
-void set_pawns(int letter, int parameters_id, int player_msg_id, int chessboard_mem_id, int chessboard_sem_id, int rows, int columns);
+int set_pawns(int letter, int parameters_id, int player_msg_id, int chessboard_mem_id, int chessboard_sem_id, int rows, int columns, struct pawn * pawns);
 struct position * calculate_position(int parameters_id);
 
 int main(int argc, char *argv[]){
@@ -38,7 +39,6 @@ int main(int argc, char *argv[]){
 	int rows;
 	int columns;
 
-
 	int a;
 
 	char * args[5]; 
@@ -59,6 +59,24 @@ int main(int argc, char *argv[]){
 	int j;
 	struct position * positions;
 	int positions_id;
+
+	struct pawn * pawns;
+
+	int * flags;
+	int * copy_flags;
+
+	int * chessboard;
+	int flags_number;
+	unsigned int size;
+
+	int flag_column;
+	int flag_row;
+
+	int distance;
+	int min_distance;
+	int pawn_row;
+	int pawn_column;
+	int target_index;
 
 	
 				/* Checking passed arguments */
@@ -104,6 +122,8 @@ int main(int argc, char *argv[]){
 	chessboard_mem_id = shmget(CHESSBOARD_MEM_KEY,sizeof(int) * rows * columns, 0666);
 	chessboard_sem_id = semget(CHESSBOARD_SEM_KEY, rows * columns, 0666);
 
+	chessboard = shmat(chessboard_mem_id,NULL,0);
+
 				/* Getting the Turn Semaphore */
 	/* --------------------------------------------------------------------- */
 	turn_sem_id = semget(MUTUAL_TURN, parameters->SO_NUM_G, 0666);
@@ -125,16 +145,30 @@ int main(int argc, char *argv[]){
     /* ----- Setting message queue for players------ */
     player_msg_id = msgget(getpid(), 0666 | IPC_CREAT);
 
+
+    pawns = malloc(sizeof(pawns) * parameters->SO_NUM_P);
+    size = sizeof(int) * parameters->SO_FLAG_MAX;
+    flags = malloc(size);
+
+    
     
 
+   
     					/* Critical section players */
     /* --------------------------------------------------------------------- */
     for(i = 0; i < parameters->SO_NUM_P; i++){
+    	pawns[i].type = i+1;
     	sem_reserve_1(turn_sem_id, (turn_sem_entry-1 + parameters->SO_NUM_G)% parameters->SO_NUM_G);
-			set_pawns(player_type, parameters_id, player_msg_id, chessboard_mem_id, chessboard_sem_id, rows, columns);
+			pawns[i].position = set_pawns(player_type, parameters_id, player_msg_id, chessboard_mem_id, chessboard_sem_id, rows, columns, pawns);
 	    sem_release(turn_sem_id, turn_sem_entry);
+
+	    pawns[i].remaining_moves = parameters->SO_N_MOVES;
+	    pawns[i].target = 0;
 	}
     /* --------------------------------------------------------------------- */
+
+	
+
     sprintf (sprintf_letter, "%d", player_type);
 	args[3] = sprintf_letter;
 
@@ -153,6 +187,7 @@ int main(int argc, char *argv[]){
     		break;
     	case 0:
     		/* Giving the type */
+
     		sprintf (sprintf_type, "%d", i+1);
     		args[2] = sprintf_type;
     		if(execve("./pawn", args, NULL)){
@@ -177,13 +212,59 @@ int main(int argc, char *argv[]){
     					/* Unblock master and wait on synchro */
 	/* -------------------------------------------------------------------------- */
     sem_reserve_1(master_sem_id, MASTER);
-    sem_reserve_1(master_sem_id, SYNCHRO);
-    
+    sem_reserve_1(master_sem_id, SYNCHRO);    
 
 	/* -------------------------------------------------------------------------- */
 
 				/* Unblock pawns by send strategy and wait for them */
 	/* -------------------------------------------------------------------------- */
+
+    
+    /* Array of Flags (position => number of flag, value => position in the matrix)*/
+    for(i = 0; i < rows; i++){
+    	for(j = 0; j < columns; j++){
+    		if(chessboard[i * columns + j] > 0){
+    			flags[flags_number] = i * columns + j;
+    			printf("Flag: %d,%d => %d\n",j,i,flags[flags_number] );
+    			flags_number++;
+    			
+    			
+    			/* flags = (int *)realloc(flags, size * (i + 1)); */
+    			
+    			
+    		}
+    	}
+    }
+
+    
+
+    for(i = 0; i < flags_number; i++){
+    	flag_column = flags[i] % columns;
+    	flag_row = (flags[i] - flag_column) / columns;
+    	min_distance = INT_MAX;
+    	for(j = 0; j < parameters->SO_NUM_P; j++){
+    		pawn_column = pawns[j].position % columns;
+    		pawn_row = (pawns[j].position - pawn_column) / columns;
+
+    		distance = abs(pawn_column - flag_column) + abs(pawn_row - flag_row);
+
+    		if(distance <= min_distance){
+    			min_distance = distance;
+    			target_index = j;
+    		}
+
+    		
+    	}
+    	pawns[target_index].target = flags[i];
+    }
+
+
+    for(i = 0; i < parameters->SO_NUM_P; i++){
+    	pawn_column = pawns[i].position % columns;
+    	pawn_row = (pawns[i].position - pawn_column) / columns;
+    	printf("Pawn #%d (%d,%d):Target:%d\n",i+1,pawn_column,pawn_row, pawns[i].target);
+    }
+
 	sem_set_val(player_sem_id, 0, parameters->SO_NUM_P);
 	
 	for(i=0; i < parameters->SO_NUM_P; i++){
@@ -216,33 +297,35 @@ int main(int argc, char *argv[]){
 	/* -------------------------------------------------------------------------- */
 	sem_set_val(master_sem_id, START, parameters->SO_NUM_P * parameters->SO_NUM_G);
 	/* -------------------------------------------------------------------------- */
-       
+    
 
     while((select = wait(NULL)) != -1);
 
     semctl(player_sem_id, 0, IPC_RMID);
     msgctl(player_msg_id, IPC_RMID, NULL);
     
+    
 	exit(EXIT_SUCCESS);
 }
 
-void set_pawns(int letter, int parameters_id, int player_msg_id, int chessboard_mem_id, int chessboard_sem_id, int rows, int columns){
+int set_pawns(int letter, int parameters_id, int player_msg_id, int chessboard_mem_id, int chessboard_sem_id, int rows, int columns, struct pawn * pawns){
 	static int num_pawn = 1;
+	
 
 	int positions_id;
 	int * positions;
-	int i;
 	int current_pos;
 	int * chessboard;
 
 	struct message message_to_pawn;
 	int players;
-	int pawns;
+	int pawns_one_player;
 	struct param * parameters;
 	int success;
 	int pawns_number;
 	int x;
 	int y;
+	int i;
 
 	parameters = shmat(parameters_id,NULL,0);
 
@@ -256,11 +339,10 @@ void set_pawns(int letter, int parameters_id, int player_msg_id, int chessboard_
     
 
     players = parameters->SO_NUM_G;
-    pawns = parameters->SO_NUM_P;
-
+    pawns_one_player = parameters->SO_NUM_P;
     srand(getpid());
     while(1){
-    	i = rand() % (players * pawns);
+    	i = rand() % (players * pawns_one_player);
     	success = sem_reserve_1_no_wait(chessboard_sem_id, positions[i]);
     	if(success != -1){
     		current_pos = positions[i];
@@ -268,7 +350,6 @@ void set_pawns(int letter, int parameters_id, int player_msg_id, int chessboard_
     		message_to_pawn.x = current_pos % columns;
     		message_to_pawn.y = (current_pos - message_to_pawn.x) / columns;
     		
-
     		chessboard[current_pos] = -letter;
     		break;
     	}
@@ -279,4 +360,6 @@ void set_pawns(int letter, int parameters_id, int player_msg_id, int chessboard_
     }
     
     num_pawn++;
+
+    return message_to_pawn.y * columns + message_to_pawn.x;
 }

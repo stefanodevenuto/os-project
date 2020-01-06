@@ -186,11 +186,10 @@ printf("PID MAster: %d\n", getpid());
 
     flag_number = rand() % (parameters->SO_FLAG_MAX - parameters->SO_FLAG_MIN + 1) + parameters->SO_FLAG_MIN;
 
-
     sum  = 0;
     for(i = flag_number - 1; i != 0 ; i--){
         media = total_score/i;
-        num = rand() % media + 1;
+        num = rand() % media  + 1;
         pos = rand() % (rows * columns);
         if(chessboard[pos] == 0){
             sum += num;
@@ -218,8 +217,8 @@ printf("PID MAster: %d\n", getpid());
     /* -------------------------------------------------------------------- */
     printf("Setto A a %d\n", parameters->SO_NUM_G);
     sem_set_val(master_sem_id, A, parameters->SO_NUM_G);
-    printf("Setto SYNCHRO a %d\n", parameters->SO_NUM_G);
-    sem_set_val(master_sem_id, SYNCHRO, 4);
+    printf("--------------------------Setto SYNCHRO a %d\n", parameters->SO_NUM_G);
+    sem_set_val(master_sem_id, SYNCHRO, parameters->SO_NUM_G);
     printf("SYNCHRO e' settato a:  %d\n", semctl(master_sem_id, SYNCHRO, GETVAL));
     
     sem_reserve_0(master_sem_id, A);
@@ -322,6 +321,7 @@ int calculate_position(int parameters_id,int chessboard_mem_id,int chessboard_se
     int pawns_per_column;
     int init_x;
     int init_y;
+    
 
     parameters = shmat(parameters_id,NULL,0);
     chessboard = shmat(chessboard_mem_id,NULL,0);
@@ -353,40 +353,62 @@ int calculate_position(int parameters_id,int chessboard_mem_id,int chessboard_se
     }
     
 
-    if(perfect_matrix_columns > columns)
-        perfect_matrix_columns = ceil(pawns_number / perfect_matrix_columns);
-
-    if(perfect_matrix_rows > rows)
-        perfect_matrix_rows = ceil(pawns_number / perfect_matrix_rows);
-
+    if(perfect_matrix_columns > columns || perfect_matrix_rows > rows){
+        printf("TURBANCE\n");
+        perfect_matrix_columns = columns;
+        perfect_matrix_rows = rows;
+    }
     
     x_step = ceil(columns / perfect_matrix_columns);
 
-    y_step = rows / perfect_matrix_rows;
+    y_step = ceil(rows / perfect_matrix_rows);
 
     printf("perfect_matrix_columns: %f, perfect_matrix_rows: %f\n", perfect_matrix_columns, perfect_matrix_rows);
 
     printf("x_step: %d, y_step: %d\n", x_step, y_step);
+
+    
 
 
     pawn_index = 0;
     first = 0;
     first_row = 0;
 
-    init_x = x_step / 2;
-    init_y = y_step / 2;
+    init_x = ceil(x_step / 2);
+    init_y = ceil(y_step / 2);
+
+    printf("PRIMA: init_x: %d, init_y: %d\n",init_x, init_y );
+    printf("PRIMA: x_step: %d, y_step: %d\n",x_step, y_step );
 
 
+
+    /* DA CAPIRE QUANDO PREFERIRE DECREMENTARE PRIMA init_y E DOPO y_step O VICEVERSA */
     /* To avoid the creation of a new fake row between a step */
+    /* -------------------------------------------------------------------------------- */
+    printf("columns: %d\n", columns);
+
     while((perfect_matrix_rows - 1) * y_step + init_y >= rows && init_y > 0){
+        printf("INIT_Y\n");
         init_y -= 1;    
     }
+    while((perfect_matrix_rows - 1) * y_step + init_y >= rows && y_step > 0){
+        printf("Y_STEP\n");
+        y_step -= 1;    
+    }
     while((perfect_matrix_columns - 1) * x_step + init_x >= columns && init_x > 0){
+        printf("INIT_X\n");
         init_x -= 1;
     }
-    /* ------------------------------------------------------ */
+    while((perfect_matrix_columns - 1) * x_step + init_x >= columns && x_step > 0){
+        printf("X_STEP\n");
+        printf("columns: %d\n", columns);
+        x_step -= 1;
+    }
+    /* -------------------------------------------------------------------------------- */
 
-    printf("init_x: %d, init_y: %d\n",init_x, init_y );
+    printf("DOPO: init_x: %d, init_y: %d\n",init_x, init_y );
+    printf("DOPO: x_step: %d, y_step: %d\n",x_step, y_step );
+
 
     for(i=0; i<perfect_matrix_rows; i++){
         for(j=0; j<perfect_matrix_columns; j++){
@@ -398,18 +420,17 @@ int calculate_position(int parameters_id,int chessboard_mem_id,int chessboard_se
                 }
                 t_y = init_y;
                 positions[pawn_index] = t_y * columns + t_x;
-                chessboard[t_y * columns + t_x] = -66;
                 pawn_index++;
             }else break;
             
         }
         if(pawn_index >= pawns_number) break;
-        init_y += y_step;
+
+        if(y_step == 0)
+            init_y += 1;
+        else
+            init_y += y_step;
     }
-
-    
-
-    print_chessboard(chessboard,chessboard_sem_id,parameters_id, rows, columns);
 
     return positions_id;
 }
