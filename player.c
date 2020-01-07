@@ -18,7 +18,7 @@ struct pawn{
     int x;
     int y;
     int remaining_moves;
-    int target[10];
+    int * target;
     int assigned;
 };
 
@@ -163,15 +163,19 @@ int main(int argc, char *argv[]){
     player_msg_id = msgget(getpid(), 0666 | IPC_CREAT);
 
 
-    pawns = malloc(sizeof(pawns) * parameters->SO_NUM_P);
+    pawns = malloc(sizeof(struct pawn) * parameters->SO_NUM_P);
     
-    flags = malloc(sizeof(int) * parameters->SO_FLAG_MAX);
+    flags = malloc(sizeof(flags) * parameters->SO_FLAG_MAX);
 
+    for(i = 0; i < parameters->SO_NUM_P; i++){
+		pawns[i].target = (int *) malloc(sizeof(int) * parameters->SO_FLAG_MAX);
+    }
     
     
 
    
     					/* Critical section players */
+    
     /* --------------------------------------------------------------------- */
     for(i = 0; i < parameters->SO_NUM_P; i++){
     	pawns[i].type = i+1;
@@ -262,10 +266,14 @@ int main(int argc, char *argv[]){
     /* Set of all target entry to 0 */
     for(i = 0; i < parameters->SO_NUM_P; i++){
     	for(j = 0; j < flags_number; j++){
+    		
     		pawns[i].target[j] = 0;
+    		
     	}
     	
+    	
     }
+    
     
     for(i = 0; i < flags_number; i++){
     	flag_column = flags[i] % columns;
@@ -297,7 +305,10 @@ int main(int argc, char *argv[]){
 
     	printf("%d,%d\n", pawns[target_index].x,pawns[target_index].y);
 
+    	
+
     	pawns[target_index].target[target_count] = flags[i];
+    	printf("2\n");
     	
 
     	pawns[target_index].assigned = 1;
@@ -326,11 +337,6 @@ int main(int argc, char *argv[]){
     	
     }
 	
-
-
-
-    
-
 	sem_set_val(player_sem_id, 0, parameters->SO_NUM_P);
 	
 	for(i=0; i < parameters->SO_NUM_P; i++){
@@ -367,6 +373,11 @@ int main(int argc, char *argv[]){
 
     while((select = wait(NULL)) != -1);
 
+    for(i = 0; i < parameters->SO_NUM_P; i++){
+    	free(pawns[i].target);
+    }
+
+    free(flags);
     free(pawns);
     
 
