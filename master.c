@@ -506,38 +506,38 @@ void print_chessboard(int * chessboard, int chessboard_sem_id,int parameters_id,
             if( switch_color_pawn < 0){
                 switch(switch_color_pawn){
                     case -65:
-                        printf("\033[1;31m");
-                        printf(" %c", -(chessboard[i * parameters->SO_BASE + j]));
-                        printf("\033[0m");
+                        fprintf(stderr, "\033[1;31m");
+                        fprintf(stderr, " %c", -(chessboard[i * parameters->SO_BASE + j]));
+                        fprintf(stderr, "\033[0m");
                     break;
                     case -66:
-                        printf("\033[1;34m");
-                        printf(" %c", -(chessboard[i * parameters->SO_BASE + j]));
-                        printf("\033[0m");
+                        fprintf(stderr, "\033[1;34m");
+                        fprintf(stderr, " %c", -(chessboard[i * parameters->SO_BASE + j]));
+                        fprintf(stderr, "\033[0m");
                     break;
                     case -67:
-                        printf("\033[1;36m");
-                        printf(" %c", -(chessboard[i * parameters->SO_BASE + j]));
-                        printf("\033[0m");
+                        fprintf(stderr, "\033[1;36m");
+                        fprintf(stderr, " %c", -(chessboard[i * parameters->SO_BASE + j]));
+                        fprintf(stderr, "\033[0m");
                     break;
                     case -68:
-                        printf("\033[1;32m");
-                        printf(" %c", -(chessboard[i * parameters->SO_BASE + j]));
-                        printf("\033[0m");
+                        fprintf(stderr, "\033[1;32m");
+                        fprintf(stderr, " %c", -(chessboard[i * parameters->SO_BASE + j]));
+                        fprintf(stderr, "\033[0m");
                     break;
                     default:
-                        printf("  %c", -(chessboard[i * parameters->SO_BASE + j]));
+                        fprintf(stderr, "  %c", -(chessboard[i * parameters->SO_BASE + j]));
                     break;
                 }
                 
             }else if(switch_color_pawn > 0){
-                /*printf(" ⭐");*/
-                printf(" %d", chessboard[i * parameters->SO_BASE + j]);
+                /*fprintf(stderr, " ⭐");*/
+                fprintf(stderr, " %d", chessboard[i * parameters->SO_BASE + j]);
             }else{
-                printf(" _");
+                fprintf(stderr, " _");
             }
         }
-        printf("\n");
+        fprintf(stderr, "\n");
     }
     printf("Semaphore values:\n");
     for(i=0; i<rows; i++){

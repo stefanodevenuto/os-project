@@ -52,14 +52,7 @@ struct strategy{
     char strategy[STRAT_LEN]; 
 };
 
-struct pawn{
-    int type;
-    int position;
-    int x;
-    int y;
-    int remaining_moves;
-    int target;
-};
+
 
 /*#define POS(row,column) ((row)*(COLUMNS)+(column))*/
 

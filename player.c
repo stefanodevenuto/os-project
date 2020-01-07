@@ -10,7 +10,17 @@
 #include <sys/shm.h>
 #include <sys/msg.h>
 #include <limits.h>
+#include <math.h>
 #include "semaphore.h"
+
+struct pawn{
+    int type;
+    int x;
+    int y;
+    int remaining_moves;
+    int target[10];
+    int assigned;
+};
 
 int set_pawns(int letter, int parameters_id, int player_msg_id, int chessboard_mem_id, int chessboard_sem_id, int rows, int columns, struct pawn * pawns);
 struct position * calculate_position(int parameters_id);
@@ -76,7 +86,14 @@ int main(int argc, char *argv[]){
 	int min_distance;
 	int pawn_row;
 	int pawn_column;
+	int new_pawn_column;
+	int new_pawn_row;
 	int target_index;
+	int pos;
+	int new_pos;
+	int position;
+
+	int target_count;
 
 	
 				/* Checking passed arguments */
@@ -147,8 +164,8 @@ int main(int argc, char *argv[]){
 
 
     pawns = malloc(sizeof(pawns) * parameters->SO_NUM_P);
-    size = sizeof(int) * parameters->SO_FLAG_MAX;
-    flags = malloc(size);
+    
+    flags = malloc(sizeof(int) * parameters->SO_FLAG_MAX);
 
     
     
@@ -159,11 +176,17 @@ int main(int argc, char *argv[]){
     for(i = 0; i < parameters->SO_NUM_P; i++){
     	pawns[i].type = i+1;
     	sem_reserve_1(turn_sem_id, (turn_sem_entry-1 + parameters->SO_NUM_G)% parameters->SO_NUM_G);
-			pawns[i].position = set_pawns(player_type, parameters_id, player_msg_id, chessboard_mem_id, chessboard_sem_id, rows, columns, pawns);
+			position = set_pawns(player_type, parameters_id, player_msg_id, chessboard_mem_id, chessboard_sem_id, rows, columns, pawns);
 	    sem_release(turn_sem_id, turn_sem_entry);
 
 	    pawns[i].remaining_moves = parameters->SO_N_MOVES;
-	    pawns[i].target = 0;
+	    pawns[i].x = position % columns;
+	    pawns[i].y = (position - pawns[i].x) / columns;
+	    pawns[i].assigned = 0;
+	    printf("(%d,%d)\n", pawns[i].x, pawns[i].y);
+	    
+
+
 	}
     /* --------------------------------------------------------------------- */
 
@@ -218,7 +241,7 @@ int main(int argc, char *argv[]){
 
 				/* Unblock pawns by send strategy and wait for them */
 	/* -------------------------------------------------------------------------- */
-
+    target_count = 0;
     
     /* Array of Flags (position => number of flag, value => position in the matrix)*/
     for(i = 0; i < rows; i++){
@@ -236,34 +259,77 @@ int main(int argc, char *argv[]){
     	}
     }
 
+    /* Set of all target entry to 0 */
+    for(i = 0; i < parameters->SO_NUM_P; i++){
+    	for(j = 0; j < flags_number; j++){
+    		pawns[i].target[j] = 0;
+    	}
+    	
+    }
     
-
     for(i = 0; i < flags_number; i++){
     	flag_column = flags[i] % columns;
     	flag_row = (flags[i] - flag_column) / columns;
     	min_distance = INT_MAX;
+    	target_count = 0;
     	for(j = 0; j < parameters->SO_NUM_P; j++){
-    		pawn_column = pawns[j].position % columns;
-    		pawn_row = (pawns[j].position - pawn_column) / columns;
+    		pawn_column = pawns[j].x;
+    		pawn_row = pawns[j].y;
 
     		distance = abs(pawn_column - flag_column) + abs(pawn_row - flag_row);
 
-    		if(distance <= min_distance){
+    		
+
+    		if(distance < min_distance){
     			min_distance = distance;
+    			
     			target_index = j;
+    			
     		}
 
-    		
     	}
-    	pawns[target_index].target = flags[i];
-    }
 
+    	while(pawns[target_index].target[target_count] != 0){
+    		target_count++;
+    	}
+
+    	pawns[target_index].remaining_moves -= min_distance;
+
+    	printf("%d,%d\n", pawns[target_index].x,pawns[target_index].y);
+
+    	pawns[target_index].target[target_count] = flags[i];
+    	
+
+    	pawns[target_index].assigned = 1;
+    	
+    	
+    	pawn_column = pawns[target_index].x;
+    	pawn_row = pawns[target_index].y;
+
+
+
+    	pawns[target_index].x = flag_column;
+    	pawns[target_index].y = flag_row;
+    	
+    }
 
     for(i = 0; i < parameters->SO_NUM_P; i++){
-    	pawn_column = pawns[i].position % columns;
-    	pawn_row = (pawns[i].position - pawn_column) / columns;
-    	printf("Pawn #%d (%d,%d):Target:%d\n",i+1,pawn_column,pawn_row, pawns[i].target);
+    	
+    		printf("Player: %c-------------------------- PEDINA %d (%d,%d) ------------------------\n",player_type, i,pawns[i].x,pawns[i].y );
+    	
+    	for(j = 0; j < flags_number; j++){
+    		if(pawns[i].target[j] != 0)
+    			printf("Player: %c %d: Target #%d => %d\n",player_type, i, j,pawns[i].target[j]);
+    		else
+    			break;
+    	}
+    	
     }
+	
+
+
+
+    
 
 	sem_set_val(player_sem_id, 0, parameters->SO_NUM_P);
 	
@@ -300,6 +366,9 @@ int main(int argc, char *argv[]){
     
 
     while((select = wait(NULL)) != -1);
+
+    free(pawns);
+    
 
     semctl(player_sem_id, 0, IPC_RMID);
     msgctl(player_msg_id, IPC_RMID, NULL);
