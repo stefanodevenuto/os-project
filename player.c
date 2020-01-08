@@ -17,8 +17,11 @@ struct pawn{
     int type;
     int x;
     int y;
+    int starting_x;
+    int starting_y;
     int remaining_moves;
     int * target;
+    int * temp_target;
     int assigned;
 };
 
@@ -94,6 +97,10 @@ int main(int argc, char *argv[]){
 	int position;
 
 	int target_count;
+	int flags_index;
+
+	int distance_2;
+	int tmp;
 
 	
 				/* Checking passed arguments */
@@ -165,11 +172,9 @@ int main(int argc, char *argv[]){
 
     pawns = malloc(sizeof(struct pawn) * parameters->SO_NUM_P);
     
-    flags = malloc(sizeof(flags) * parameters->SO_FLAG_MAX);
+    
 
-    for(i = 0; i < parameters->SO_NUM_P; i++){
-		pawns[i].target = (int *) malloc(sizeof(int) * parameters->SO_FLAG_MAX);
-    }
+    
     
     
 
@@ -184,8 +189,8 @@ int main(int argc, char *argv[]){
 	    sem_release(turn_sem_id, turn_sem_entry);
 
 	    pawns[i].remaining_moves = parameters->SO_N_MOVES;
-	    pawns[i].x = position % columns;
-	    pawns[i].y = (position - pawns[i].x) / columns;
+	    pawns[i].starting_x = pawns[i].x = position % columns;
+	    pawns[i].starting_y = pawns[i].y = (position - pawns[i].x) / columns;
 	    pawns[i].assigned = 0;
 	    printf("(%d,%d)\n", pawns[i].x, pawns[i].y);
 	    
@@ -248,93 +253,136 @@ int main(int argc, char *argv[]){
     target_count = 0;
     
     /* Array of Flags (position => number of flag, value => position in the matrix)*/
+
+    
+    flags = malloc(sizeof(int));
+    
+
     for(i = 0; i < rows; i++){
     	for(j = 0; j < columns; j++){
     		if(chessboard[i * columns + j] > 0){
     			flags[flags_number] = i * columns + j;
-    			printf("Flag: %d,%d => %d\n",j,i,flags[flags_number] );
     			flags_number++;
-    			
-    			
-    			/* flags = (int *)realloc(flags, size * (i + 1)); */
-    			
-    			
+    			copy_flags = realloc(flags, sizeof(int) * (i + 2));
+    			flags = copy_flags;
     		}
     	}
     }
 
-    /* Set of all target entry to 0 */
+    for(i = 0; i < flags_number; i++ ){
+    	printf("Flag: (%d,%d) => %d\n", flags[i] % columns, (flags[i] - flags[i] % columns) / columns), flags[i];
+    }
+
+    for(i = 0; i < parameters->SO_NUM_P; i++){
+		pawns[i].target = (int *) malloc(sizeof(int) * flags_number);
+		pawns[i].temp_target = (int *) malloc(sizeof(int) * flags_number);
+
+    }
+
+
+
+
+    /* Set of all target-entry to 0 */
     for(i = 0; i < parameters->SO_NUM_P; i++){
     	for(j = 0; j < flags_number; j++){
-    		
     		pawns[i].target[j] = 0;
-    		
+    		pawns[i].temp_target[j] = 0;
     	}
-    	
-    	
     }
+
+
+
+    /*----------------------------ALGORITMO--------------------------------------*/
     
-    
-    for(i = 0; i < flags_number; i++){
-    	flag_column = flags[i] % columns;
-    	flag_row = (flags[i] - flag_column) / columns;
-    	min_distance = INT_MAX;
-    	target_count = 0;
-    	for(j = 0; j < parameters->SO_NUM_P; j++){
-    		pawn_column = pawns[j].x;
-    		pawn_row = pawns[j].y;
+	    for(i = 0; i < flags_number; i++){
+	    	flag_column = flags[i] % columns;
+	    	flag_row = (flags[i] - flag_column) / columns;
+	    	min_distance = INT_MAX;
+	    	target_count = 0;
+	    	for(j = 0; j < parameters->SO_NUM_P; j++){
+	    		pawn_column = pawns[j].x;
+	    		pawn_row = pawns[j].y;
 
-    		distance = abs(pawn_column - flag_column) + abs(pawn_row - flag_row);
+	    		distance = abs(pawn_column - flag_column) + abs(pawn_row - flag_row);
 
-    		
+	    		if(pawns[j].remaining_moves >= distance && distance < min_distance){
 
-    		if(distance < min_distance){
-    			min_distance = distance;
-    			
-    			target_index = j;
-    			
-    		}
+	    			min_distance = distance;
+	    			target_index = j;
+	    			
+	    		}
 
-    	}
+	    	}
+	    	
+	    	if(min_distance != INT_MAX){
+	    		while(pawns[target_index].target[target_count] != 0){
+	    			target_count++;
+		    	}
 
-    	while(pawns[target_index].target[target_count] != 0){
-    		target_count++;
-    	}
+		    	pawns[target_index].remaining_moves -= min_distance;
 
-    	pawns[target_index].remaining_moves -= min_distance;
+		    	pawns[target_index].target[target_count] = flags[i];
 
-    	printf("%d,%d\n", pawns[target_index].x,pawns[target_index].y);
+		    	pawns[target_index].assigned += 1;
+		    	
+		    	pawn_column = pawns[target_index].x;
+		    	pawn_row = pawns[target_index].y;
 
-    	
+		    	pawns[target_index].x = flag_column;
+		    	pawns[target_index].y = flag_row;
 
-    	pawns[target_index].target[target_count] = flags[i];
-    	printf("2\n");
-    	
+		    	target_index = k;
+	    	}
+	    }
 
-    	pawns[target_index].assigned = 1;
-    	
-    	
-    	pawn_column = pawns[target_index].x;
-    	pawn_row = pawns[target_index].y;
-
+	
+	
+    /*-----------------------------------------------------------------------------------*/
 
 
-    	pawns[target_index].x = flag_column;
-    	pawns[target_index].y = flag_row;
-    	
-    }
 
     for(i = 0; i < parameters->SO_NUM_P; i++){
-    	
-    		printf("Player: %c-------------------------- PEDINA %d (%d,%d) ------------------------\n",player_type, i,pawns[i].x,pawns[i].y );
-    	
-    	for(j = 0; j < flags_number; j++){
-    		if(pawns[i].target[j] != 0)
-    			printf("Player: %c %d: Target #%d => %d\n",player_type, i, j,pawns[i].target[j]);
-    		else
-    			break;
+    	if(pawns[i].assigned > 0){
+    		
+    		for(j = 0; j < (pawns[i].assigned - 1); j++){
+    		
+    			flag_column = pawns[i].target[j] % columns;
+    			flag_row = (pawns[i].target[j] - flag_column) / columns;
+
+    			distance = abs(pawns[i].starting_x - flag_column) + abs(pawns[i].starting_y - flag_row);
+    			
+    			flag_column = pawns[i].target[j + 1] % columns;
+    			flag_row = (pawns[i].target[j + 1] - flag_column) / columns;
+
+    			distance_2 = abs(pawns[i].starting_x - flag_column) + abs(pawns[i].starting_y - flag_row);
+
+    			printf("CAMBIO\n");
+
+    			if(distance_2 < distance){
+    				tmp = pawns[i].target[j + 1];
+    				pawns[i].target[j + 1] = pawns[i].target[j];
+    				pawns[i].target[j] = tmp;
+    			}
+
+    		
+    		}
     	}
-    	
+    }
+
+    
+
+
+
+    for(i = 0; i < parameters->SO_NUM_P; i++){
+    	if(pawns[i].assigned > 0){
+	    	printf("Player: %c-------------------------- PEDINA %d (%d,%d) ------------------------\n",player_type, i,pawns[i].x,pawns[i].y );	
+	    	for(j = 0; j < flags_number; j++){
+	    		if(pawns[i].target[j] != 0)
+	    			printf("Player: %c %d: Target #%d => %d Moves: %d\n",player_type, i, j,pawns[i].target[j], pawns[i].remaining_moves);
+	    		else
+	    			break;
+	    	}
+    	}
     }
 	
 	sem_set_val(player_sem_id, 0, parameters->SO_NUM_P);
@@ -373,11 +421,17 @@ int main(int argc, char *argv[]){
 
     while((select = wait(NULL)) != -1);
 
+
     for(i = 0; i < parameters->SO_NUM_P; i++){
+    	fprintf(stderr,"Rimozione Target #%d\n",i );
     	free(pawns[i].target);
+    	free(pawns[i].temp_target);
     }
 
+    fprintf(stderr,"Rimozione Flags\n");
+
     free(flags);
+    fprintf(stderr,"Rimozione Pawns\n");
     free(pawns);
     
 
