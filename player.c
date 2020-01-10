@@ -13,6 +13,18 @@
 #include <math.h>
 #include "semaphore.h"
 
+
+
+
+struct flag{
+	int number;
+	int position;
+	int x;
+	int y;
+	int distance;
+	int checked;
+};
+
 struct pawn{
     int type;
     int x;
@@ -20,13 +32,15 @@ struct pawn{
     int starting_x;
     int starting_y;
     int remaining_moves;
-    int * target;
-    int * temp_target;
+    struct flag * target;
+    struct flag * temp_target;
     int assigned;
+    int temp_assigned;
 };
 
 int set_pawns(int letter, int parameters_id, int player_msg_id, int chessboard_mem_id, int chessboard_sem_id, int rows, int columns, struct pawn * pawns);
 struct position * calculate_position(int parameters_id);
+int all_checked_flag(struct flag * flags, int flags_number);
 
 int main(int argc, char *argv[]){
 
@@ -75,8 +89,8 @@ int main(int argc, char *argv[]){
 
 	struct pawn * pawns;
 
-	int * flags;
-	int * copy_flags;
+	struct flag * flags;
+	struct flag * copy_flags;
 
 	int * chessboard;
 	int flags_number;
@@ -101,6 +115,16 @@ int main(int argc, char *argv[]){
 
 	int distance_2;
 	int tmp;
+
+	int temp_target_count;
+	int flag_target;
+	int z;
+	int index_best_distance;
+	int pawn_index;
+	int number;
+	int def_distance;
+	int def_distance_2;
+	int test_pawn;
 
 	
 				/* Checking passed arguments */
@@ -172,13 +196,7 @@ int main(int argc, char *argv[]){
 
     pawns = malloc(sizeof(struct pawn) * parameters->SO_NUM_P);
     
-    
 
-    
-    
-    
-
-   
     					/* Critical section players */
     
     /* --------------------------------------------------------------------- */
@@ -254,136 +272,167 @@ int main(int argc, char *argv[]){
     
     /* Array of Flags (position => number of flag, value => position in the matrix)*/
 
-    
-    flags = malloc(sizeof(int));
-    
-
+    flags = malloc(sizeof(struct flag));
+    flags_number = 0;
     for(i = 0; i < rows; i++){
     	for(j = 0; j < columns; j++){
     		if(chessboard[i * columns + j] > 0){
-    			flags[flags_number] = i * columns + j;
+    			flags[flags_number].number = flags_number;
+    			flags[flags_number].position = i * columns + j;
+    			flags[flags_number].x = flags[flags_number].position % columns;
+    			flags[flags_number].y = (flags[flags_number].position - flags[flags_number].x) / columns;
     			flags_number++;
-    			copy_flags = realloc(flags, sizeof(int) * (i + 2));
+    			copy_flags = realloc(flags, sizeof(struct flag) * (i + 2));
     			flags = copy_flags;
     		}
     	}
     }
 
     for(i = 0; i < flags_number; i++ ){
-    	printf("Flag: (%d,%d) => %d\n", flags[i] % columns, (flags[i] - flags[i] % columns) / columns), flags[i];
+    	flags[i].checked = 0;
     }
+
+    
 
     for(i = 0; i < parameters->SO_NUM_P; i++){
-		pawns[i].target = (int *) malloc(sizeof(int) * flags_number);
-		pawns[i].temp_target = (int *) malloc(sizeof(int) * flags_number);
 
+		pawns[i].target = (struct flag *) malloc(sizeof(struct flag) * flags_number);
+		 
+		pawns[i].temp_target = (struct flag *) malloc(sizeof(struct flag) * flags_number);
+		
     }
 
-
-
-
+    	test = 1;
     /* Set of all target-entry to 0 */
-    for(i = 0; i < parameters->SO_NUM_P; i++){
-    	for(j = 0; j < flags_number; j++){
-    		pawns[i].target[j] = 0;
-    		pawns[i].temp_target[j] = 0;
-    	}
-    }
-
+    
+    
 
 
     /*----------------------------ALGORITMO--------------------------------------*/
-    
-	    for(i = 0; i < flags_number; i++){
-	    	flag_column = flags[i] % columns;
-	    	flag_row = (flags[i] - flag_column) / columns;
-	    	min_distance = INT_MAX;
-	    	target_count = 0;
-	    	for(j = 0; j < parameters->SO_NUM_P; j++){
-	    		pawn_column = pawns[j].x;
-	    		pawn_row = pawns[j].y;
+	    
 
-	    		distance = abs(pawn_column - flag_column) + abs(pawn_row - flag_row);
+	    test = 1;
+	    while(all_checked_flag(flags,flags_number)){	
+	    	/* PRIMA PARTE */
+		    for(i = 0; i < flags_number; i++){
+			    if(flags[i].checked == 0){
+			    	target_index = -1;
+			    	min_distance = INT_MAX;
+				    temp_target_count = 0;
+			    	
+				    flag_column = flags[i].x;
+				    flag_row = flags[i].y;
+			    	
+			    	test_pawn = 0;
+					for(j = 0; j < parameters->SO_NUM_P; j++){
 
-	    		if(pawns[j].remaining_moves >= distance && distance < min_distance){
+					    pawn_column = pawns[j].x;
+					    pawn_row = pawns[j].y;
 
-	    			min_distance = distance;
-	    			target_index = j;
-	    			
-	    		}
+					    distance = abs(pawn_column - flag_column) + abs(pawn_row - flag_row);
 
-	    	}
-	    	
-	    	if(min_distance != INT_MAX){
-	    		while(pawns[target_index].target[target_count] != 0){
-	    			target_count++;
+					    if(pawns[j].remaining_moves >= distance && distance <= min_distance){
+					    	
+					    	min_distance = distance;
+					    	target_index = j;
+					    			
+					    }
+
+				   	}
+				    	
+				    if(min_distance != INT_MAX){
+				    	
+				    	test_pawn = 1;
+				    	temp_target_count = pawns[target_index].temp_assigned;
+					    pawns[target_index].temp_target[temp_target_count] = flags[i];
+					    pawns[target_index].temp_assigned += 1;
+					    	
+				    }
+
+
+				    if(target_index == -1){
+				    	flags[i].checked = 1;
+					}
+				}
+				
+		    }
+
+		    /* SECONDA PARTE */
+		    for(i = 0; i < parameters->SO_NUM_P; i++){
+		    	target_index = 0;
+
+		    	if(pawns[i].temp_assigned > 0){
+
+		    		flag_column = pawns[i].temp_target[0].x;
+		    		
+			    	flag_row = pawns[i].temp_target[0].y;
+			    	
+			    	def_distance = abs(pawns[i].x - flag_column) + abs(pawns[i].y - flag_row);
+			    	
+		    		
+			    	if(pawns[i].temp_assigned > 1){
+			    		
+			    		
+			    		for(j = 1; j < pawns[i].temp_assigned; j++){	    			
+			    			flag_column = pawns[i].temp_target[j].x;
+			    			flag_row = pawns[i].temp_target[j].y;
+			    			def_distance_2 = abs(pawns[i].x - flag_column) + abs(pawns[i].y - flag_row);
+
+			    			if(def_distance_2 < def_distance){
+			    				def_distance = def_distance_2;
+			    				target_index = j;
+			    				
+			    				
+			    			}
+
+			    		}
+			    	}
+
+			    	pawn_index = pawns[i].assigned;
+			    	
+			    	pawns[i].target[pawn_index] = pawns[i].temp_target[target_index];
+			    	number = pawns[i].temp_target[target_index].number;
+			    	flags[number].checked = 1;
+			    			    	
+
+			    	pawns[i].remaining_moves -= def_distance;
+
+
+			    	pawns[i].x = pawns[i].target[pawn_index].x;
+			    	pawns[i].y = pawns[i].target[pawn_index].y;
+			    	
+
+			    	pawns[i].assigned += 1;
+
+
+			    	for(j = 0; j < pawns[i].temp_assigned; j++){
+			    		pawns[i].temp_assigned = 0;
+			    	}
 		    	}
-
-		    	pawns[target_index].remaining_moves -= min_distance;
-
-		    	pawns[target_index].target[target_count] = flags[i];
-
-		    	pawns[target_index].assigned += 1;
-		    	
-		    	pawn_column = pawns[target_index].x;
-		    	pawn_row = pawns[target_index].y;
-
-		    	pawns[target_index].x = flag_column;
-		    	pawns[target_index].y = flag_row;
-
-		    	target_index = k;
-	    	}
-	    }
-
-	
-	
+		    }
+		}
     /*-----------------------------------------------------------------------------------*/
+	
+	
 
-
-
-    for(i = 0; i < parameters->SO_NUM_P; i++){
-    	if(pawns[i].assigned > 0){
-    		
-    		for(j = 0; j < (pawns[i].assigned - 1); j++){
-    		
-    			flag_column = pawns[i].target[j] % columns;
-    			flag_row = (pawns[i].target[j] - flag_column) / columns;
-
-    			distance = abs(pawns[i].starting_x - flag_column) + abs(pawns[i].starting_y - flag_row);
-    			
-    			flag_column = pawns[i].target[j + 1] % columns;
-    			flag_row = (pawns[i].target[j + 1] - flag_column) / columns;
-
-    			distance_2 = abs(pawns[i].starting_x - flag_column) + abs(pawns[i].starting_y - flag_row);
-
-    			printf("CAMBIO\n");
-
-    			if(distance_2 < distance){
-    				tmp = pawns[i].target[j + 1];
-    				pawns[i].target[j + 1] = pawns[i].target[j];
-    				pawns[i].target[j] = tmp;
-    			}
-
-    		
-    		}
-    	}
-    }
 
     
 
-
-
-    for(i = 0; i < parameters->SO_NUM_P; i++){
+	for(i = 0; i < parameters->SO_NUM_P; i++){
     	if(pawns[i].assigned > 0){
-	    	printf("Player: %c-------------------------- PEDINA %d (%d,%d) ------------------------\n",player_type, i,pawns[i].x,pawns[i].y );	
+	    	printf("Player: %c-------------------------- PEDINA %d (%d,%d) ------------------------\n",player_type, i,pawns[i].starting_x,pawns[i].starting_y );	
 	    	for(j = 0; j < flags_number; j++){
-	    		if(pawns[i].target[j] != 0)
-	    			printf("Player: %c %d: Target #%d => %d Moves: %d\n",player_type, i, j,pawns[i].target[j], pawns[i].remaining_moves);
+	    		if(pawns[i].assigned > 0)
+	    			printf("Player: %c %d: Target #%d => (%d,%d) Moves: %d\n",player_type, i, j,pawns[i].target[j].x,pawns[i].target[j].y ,pawns[i].remaining_moves);
 	    		else
 	    			break;
 	    	}
     	}
     }
+
+    
+
+    
 	
 	sem_set_val(player_sem_id, 0, parameters->SO_NUM_P);
 	
@@ -423,15 +472,12 @@ int main(int argc, char *argv[]){
 
 
     for(i = 0; i < parameters->SO_NUM_P; i++){
-    	fprintf(stderr,"Rimozione Target #%d\n",i );
     	free(pawns[i].target);
     	free(pawns[i].temp_target);
     }
 
-    fprintf(stderr,"Rimozione Flags\n");
 
     free(flags);
-    fprintf(stderr,"Rimozione Pawns\n");
     free(pawns);
     
 
@@ -496,4 +542,13 @@ int set_pawns(int letter, int parameters_id, int player_msg_id, int chessboard_m
     num_pawn++;
 
     return message_to_pawn.y * columns + message_to_pawn.x;
+}
+
+int all_checked_flag(struct flag * flags, int flags_number){
+	int i;
+	for(i = 0; i < flags_number; i++){
+		if(flags[i].checked == 0) return 1;
+	}
+
+	return 0;
 }
