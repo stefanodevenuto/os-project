@@ -23,8 +23,9 @@ typedef struct{
 } PAWN;
 
 int has_moves(PAWN * pawn);
-int move(int columns, int player_letter, PAWN * pawn, int * chessboard);
+int move(int columns, int player_letter, PAWN * pawn, int * chessboard, int rows);
 int move_specific(int way,int player_letter, PAWN * pawn, int * chessboard, int columns);
+int fix_position(PAWN * pawn, int columns, int rows, int * chessboard, int player_letter);
 
 int main(int argc, char *argv[]){
 
@@ -156,7 +157,7 @@ int main(int argc, char *argv[]){
 		while(has_moves(&pawn)){
 
 			if(semctl(chessboard_sem_id, flag_position, GETVAL) == 1){
-				if(move(columns, player_letter, &pawn, chessboard) == 2){
+				if(move(columns, player_letter, &pawn, chessboard, rows) == 2){
 					if((a = msgrcv(player_msg_id, &strategy,LEN_STRATEGY, type, IPC_NOWAIT)) != -1){
 						pawn.directions[N] = strategy.directions[N];
 						pawn.directions[S] = strategy.directions[S];
@@ -245,7 +246,7 @@ int has_moves(PAWN * pawn){
 		return 0;
 }
 
-int move(int columns, int player_letter, PAWN * pawn, int * chessboard){
+int move(int columns, int player_letter, PAWN * pawn, int * chessboard, int rows, int player_letter){
 	
 	int result;
 	result = -1;
@@ -279,12 +280,15 @@ int move(int columns, int player_letter, PAWN * pawn, int * chessboard){
 			return 2;
 		}else if(result == 1){
 			return 1;
-		}else{
-			
 		}
 	}
 
-	printf("SONO BLOCCATA\n");
+	if(result == 0){
+		printf("SONO BLOCCATA\n");
+		return fix_position(pawn, columns, rows, chessboard, player_letter);
+	}
+
+	
 	
 	return 0;
 }
@@ -408,5 +412,182 @@ int move_specific(int way,int player_letter, PAWN * pawn, int * chessboard, int 
 		default:
 			printf("FACCIO MERDA\n");
 		break;
+	}
+}
+
+int fix_position(PAWN * pawn, int columns, int rows, int * chessboard, int player_letter){
+	if(pawn->directions[N] > 0){
+		if(pawn->directions[E] > 0){
+			/* controllo W */
+			/* controllo S */
+			if(pawn->x-1 >= 0 && semctl(chessboard_sem_id, pawn->y * columns + (pawn->x-1), GETVAL) == 1){
+				if(pawn->y + 1 <= rows && semctl(chessboard_sem_id, (pawn->y+1) * columns + pawn->x, GETVAL) == 1){
+					while(/* uno dei due non è occupato */){
+						/* controllo N/W e S/E */
+					}
+				}else{
+					return move_specific(W, player_letter, pawn, chessboard, columns);
+				}
+			}else{
+				if(pawn->y + 1 <= rows && semctl(chessboard_sem_id, (pawn->y+1) * columns + pawn->x, GETVAL) == 1){
+					return move_specific(S, player_letter, pawn, chessboard, columns);
+				}else{
+					/* QUA DEVI FERMARTI DIO FA => azzera le mosse disponibili */
+					/*while( uno dei due non è libero ){
+						 controllo N/W e S/E 
+					}*/	
+				}
+			}
+		}else if(pawn->directions[W] > 0){
+			/* controllo E */
+			/* controllo S */
+			if(pawn->x+1 <= columns && semctl(chessboard_sem_id, pawn->y * columns + (pawn->x+1), GETVAL) == 1){
+				if(pawn->y + 1 <= rows && semctl(chessboard_sem_id, (pawn->y+1) * columns + pawn->x, GETVAL) == 1){
+					while(/* uno dei due non è occupato */){
+						/* controllo N/E e S/W */
+					}
+				}else{
+					return move_specific(E, player_letter, pawn, chessboard, columns);
+				}
+			}else{
+				if(pawn->y + 1 <= rows && semctl(chessboard_sem_id, (pawn->y+1) * columns + pawn->x, GETVAL) == 1){
+					return move_specific(S, player_letter, pawn, chessboard, columns);
+				}else{
+					while(/* uno dei due non è libero */){
+						/* controllo N/E e S/W */
+					}
+				}
+			}
+		}else{
+			/* controllo E */
+			/* controllo W */
+			if(pawn->x+1 <= columns && semctl(chessboard_sem_id, pawn->y * columns + (pawn->x+1), GETVAL) == 1){
+				if(pawn->x-1 >= 0 && semctl(chessboard_sem_id, pawn->y * columns + (pawn->x-1), GETVAL) == 1){
+					while(/* uno dei due non è occupato */){
+						/* controllo N/E e N/W */
+					}
+				}else{
+					return move_specific(E, player_letter, pawn, chessboard, columns);
+				}
+			}else{
+				if(pawn->x-1 >= 0 && semctl(chessboard_sem_id, pawn->y * columns + (pawn->x-1), GETVAL) == 1){
+					return move_specific(W, player_letter, pawn, chessboard, columns);
+				}else{
+					while(/* uno dei due non è libero */){
+						/* controllo N/E e N/W */
+					}
+				}
+			}
+
+		}
+		
+	}
+
+	if(pawn->directions[S] > 0){
+		if(pawn->directions[E] > 0){
+			/* controllo W */
+			/* controllo N */
+			if(pawn->x-1 >= 0 && semctl(chessboard_sem_id, pawn->y * columns + (pawn->x-1), GETVAL) == 1){
+				if(pawn->y-1 >= 0 && semctl(chessboard_sem_id, (pawn->y-1) * columns + pawn->x, GETVAL) == 1){
+					while(/* uno dei due non è occupato */){
+						/* controllo N/E e S/W */
+					}
+				}else{
+					return move_specific(W, player_letter, pawn, chessboard, columns);
+				}
+			}else{
+				if(pawn->y-1 >= 0 && semctl(chessboard_sem_id, (pawn->y-1) * columns + pawn->x, GETVAL) == 1){
+					return move_specific(N, player_letter, pawn, chessboard, columns);
+				}else{
+					while(/* uno dei due non è libero */){
+						/* controllo N/E e S/W */
+					}
+				}
+			}
+		}else if(pawn->directions[W] > 0){
+			/* controllo N */
+			/* controllo E */
+			if(pawn->x+1 <= columns && semctl(chessboard_sem_id, pawn->y * columns + (pawn->x+1), GETVAL) == 1){
+				if(pawn->y-1 >= 0 && semctl(chessboard_sem_id, (pawn->y-1) * columns + pawn->x, GETVAL) == 1){
+					while(/* uno dei due non è occupato */){
+						/* controllo N/W e S/E */
+					}
+				}else{
+					return move_specific(E, player_letter, pawn, chessboard, columns);
+				}
+			}else{
+				if(pawn->y-1 >= 0 && semctl(chessboard_sem_id, (pawn->y-1) * columns + pawn->x, GETVAL) == 1){
+					return move_specific(N, player_letter, pawn, chessboard, columns);
+				}else{
+					while(/* uno dei due non è libero */){
+						/* controllo N/W e S/E */
+					}
+				}
+			}
+		}else{
+			/* controllo E */
+			/* controllo W */
+			if(pawn->x+1 <= columns && semctl(chessboard_sem_id, pawn->y * columns + (pawn->x+1), GETVAL) == 1){
+				if(pawn->x-1 >= 0 && semctl(chessboard_sem_id, pawn->y * columns + (pawn->x-1), GETVAL) == 1){
+					while(/* uno dei due non è occupato */){
+						/* controllo S/E e S/W */
+					}
+				}else{
+					return move_specific(E, player_letter, pawn, chessboard, columns);
+				}
+			}else{
+				if(pawn->x-1 >= 0 && semctl(chessboard_sem_id, pawn->y * columns + (pawn->x-1), GETVAL) == 1){
+					move_specific(W, player_letter, pawn, chessboard, columns);
+				}else{
+					while(/* uno dei due non è libero */){
+						/* controllo S/E e S/W */
+					}
+				}
+			}
+
+		}
+	}
+
+	if(pawn->directions[E] > 0){
+		/* controllo N */
+		/* controllo S */
+		if(pawn->y-1 >= 0 && semctl(chessboard_sem_id, (pawn->y-1) * columns + pawn->x, GETVAL) == 1){
+			if(pawn->y + 1 <= rows && semctl(chessboard_sem_id, (pawn->y+1) * columns + pawn->x, GETVAL) == 1){
+				while(/* uno dei due non è occupato */){
+					/* controllo N/E e S/E */
+				}
+			}else{
+				return move_specific(N, player_letter, pawn, chessboard, columns);
+			}
+		}else{
+			if(pawn->y + 1 <= rows && semctl(chessboard_sem_id, (pawn->y+1) * columns + pawn->x, GETVAL) == 1){
+				return move_specific(S, player_letter, pawn, chessboard, columns);
+			}else{
+				while(/* uno dei due non è libero */){
+					/* controllo N/E e S/E */
+				}
+			}
+		}
+	}
+	if(pawn->directions[W] > 0){
+		/* controllo N */
+		/* controllo S */
+		if(pawn->y-1 >= 0 && semctl(chessboard_sem_id, (pawn->y-1) * columns + pawn->x, GETVAL) == 1){
+			if(pawn->y + 1 <= rows && semctl(chessboard_sem_id, (pawn->y+1) * columns + pawn->x, GETVAL) == 1){
+				while(/* uno dei due non è occupato */){
+					/* controllo N/W e S/W */
+				}
+			}else{
+				return move_specific(N, player_letter, pawn, chessboard, columns);
+			}
+		}else{
+			if(pawn->y + 1 <= rows && semctl(chessboard_sem_id, (pawn->y+1) * columns + pawn->x, GETVAL) == 1){
+				return move_specific(S, player_letter, pawn, chessboard, columns);
+			}else{
+				while(/* uno dei due non è libero */){
+					/* controllo N/W e S/W */
+				}
+			}
+		}
 	}
 }
