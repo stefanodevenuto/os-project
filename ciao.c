@@ -2,35 +2,29 @@
 #include <stdlib.h>
 #include <string.h>
 
-struct flag{
-	int number;
-	int position;
-	int x;
-	int y;
-	int distance;
-	int checked;
-};
+typedef struct{
+	int * a;
+}PAWN;
+
+int miao(PAWN * pawn);
 
 int main(int argc, char const *argv[])
 {
-	int i;
-	struct flag * a;
+	PAWN pawn;
 
-	a = (struct flag *) malloc(4 * sizeof(struct flag));
-
-	memset(a, 0, 4 * sizeof(struct flag)); 
-
-	for(i = 0; i < 4; i++){
-		printf("%d", a[i].number);
-		printf("%d", a[i].position);
-		printf("%d", a[i].x);
-		printf("%d", a[i].y);
-		printf("%d", a[i].distance);
-		printf("%d", a[i].checked);
-	}
-
+	printf("CIAo\n");
 	
+	pawn.a = malloc(sizeof(int) * 4);
+	
+	miao(&pawn);
+
+	printf("%d\n", pawn.a[0]);
 
 
 	return 0;
+}
+
+int miao(PAWN * pawn){
+	printf("MIAO\n");
+	pawn->a[0] = 4;
 }

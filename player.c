@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -13,9 +14,6 @@
 #include <math.h>
 #include "semaphore.h"
 
-
-
-
 struct flag{
 	int number;
 	int position;
@@ -26,7 +24,7 @@ struct flag{
 };
 
 struct pawn{
-    int type;
+    long type;
     int x;
     int y;
     int starting_x;
@@ -71,7 +69,7 @@ int main(int argc, char *argv[]){
 	char * args[5]; 
 
 	struct message message_to_pawn;
-	struct strategy strategy_pawn;
+	
 
 	char sprintf_parameters_id[200];
 	char sprintf_letter[200];
@@ -125,6 +123,9 @@ int main(int argc, char *argv[]){
 	int def_distance;
 	int def_distance_2;
 	int test_pawn;
+	int success;
+
+	struct player_strategy strategy;
 
 	
 				/* Checking passed arguments */
@@ -201,7 +202,6 @@ int main(int argc, char *argv[]){
     
     /* --------------------------------------------------------------------- */
     for(i = 0; i < parameters->SO_NUM_P; i++){
-    	pawns[i].type = i+1;
     	sem_reserve_1(turn_sem_id, (turn_sem_entry-1 + parameters->SO_NUM_G)% parameters->SO_NUM_G);
 			position = set_pawns(player_type, parameters_id, player_msg_id, chessboard_mem_id, chessboard_sem_id, rows, columns, pawns);
 	    sem_release(turn_sem_id, turn_sem_entry);
@@ -210,10 +210,7 @@ int main(int argc, char *argv[]){
 	    pawns[i].starting_x = pawns[i].x = position % columns;
 	    pawns[i].starting_y = pawns[i].y = (position - pawns[i].x) / columns;
 	    pawns[i].assigned = 0;
-	    printf("(%d,%d)\n", pawns[i].x, pawns[i].y);
 	    
-
-
 	}
     /* --------------------------------------------------------------------- */
 
@@ -270,7 +267,7 @@ int main(int argc, char *argv[]){
 	/* -------------------------------------------------------------------------- */
     target_count = 0;
     
-    /* Array of Flags (position => number of flag, value => position in the matrix)*/
+    
 
     flags = malloc(sizeof(struct flag));
     flags_number = 0;
@@ -296,21 +293,23 @@ int main(int argc, char *argv[]){
     
 
     for(i = 0; i < parameters->SO_NUM_P; i++){
-
 		pawns[i].target = (struct flag *) malloc(sizeof(struct flag) * flags_number);
-		 
+		memset(pawns[i].target, -1, sizeof(struct flag) * flags_number);
 		pawns[i].temp_target = (struct flag *) malloc(sizeof(struct flag) * flags_number);
-		
+		memset(pawns[i].temp_target, -1, sizeof(struct flag) * flags_number);
     }
 
-    /* Set of all target-entry to 0 */
-    
-    
 
+   
+
+    /* Setting the wait-for-0 semaphore */
+    sem_set_val(player_sem_id, 0, parameters->SO_NUM_P);
+    
 
     /*----------------------------ALGORITMO--------------------------------------*/
-	    while(all_checked_flag(flags,flags_number)){	
+	    while(!all_checked_flag(flags,flags_number)){	
 	    	/* PRIMA PARTE */
+	    	strategy.selected = 0;
 		    for(i = 0; i < flags_number; i++){
 			    if(flags[i].checked != 1){
 			    	target_index = -1;
@@ -383,10 +382,39 @@ int main(int argc, char *argv[]){
 			    			    	
 			    	pawns[i].remaining_moves -= def_distance;
 
+			    	strategy.mtype = pawns[i].type;
+			    	strategy.selected = 1;
+			    	strategy.flag_x = pawns[i].target[pawn_index].x;
+			    	strategy.flag_y = pawns[i].target[pawn_index].y;
+			    	strategy.flag_position = strategy.flag_y * columns + strategy.flag_x;
+
+			    	strategy.directions[N] = 0;
+			    	strategy.directions[S] = 0;
+			    	strategy.directions[E] = 0;
+			    	strategy.directions[W] = 0;
+
+
+			    	if(pawns[i].temp_target[target_index].x > pawns[i].x){
+			    		strategy.directions[E] = pawns[i].temp_target[target_index].x - pawns[i].x;
+			    	}else if(pawns[i].temp_target[target_index].x < pawns[i].x){
+			    		strategy.directions[W] = pawns[i].x - pawns[i].temp_target[target_index].x;
+			    	}
+
+			    	if(pawns[i].temp_target[target_index].y < pawns[i].y){
+			    		strategy.directions[N] = pawns[i].y - pawns[i].temp_target[target_index].y;
+			    	}else if(pawns[i].temp_target[target_index].y > pawns[i].y){
+			    		strategy.directions[S] = pawns[i].temp_target[target_index].y - pawns[i].y;
+			    	}
+
+
 			    	pawns[i].x = pawns[i].target[pawn_index].x;
 			    	pawns[i].y = pawns[i].target[pawn_index].y;
 			    	
 			    	pawns[i].assigned += 1;
+
+					if((success = msgsnd(player_msg_id, &strategy, LEN_STRATEGY, 0)) == -1){
+					   	fprintf(stderr, "Failed Message Send#%d: %s\n", errno, strerror(errno));
+					}
 
 			    	for(j = 0; j < pawns[i].temp_assigned; j++){
 			    		pawns[i].temp_assigned = 0;
@@ -394,18 +422,31 @@ int main(int argc, char *argv[]){
 		    	}
 		    }
 		}
+
+		for(i = 0; i < parameters->SO_NUM_P; i++){
+			if(pawns[i].assigned == 0){
+				strategy.mtype = pawns[i].type;
+			    strategy.selected = 0;
+			    strategy.directions[N] = 0;
+			    strategy.directions[S] = 0;
+			    strategy.directions[E] = 0;
+			    strategy.directions[W] = 0;
+			    strategy.flag_x = -1;
+			    strategy.flag_y = -1;
+			    strategy.flag_position = -1;
+
+			    if((success = msgsnd(player_msg_id, &strategy, LEN_STRATEGY, 0)) == -1){
+					fprintf(stderr, "Failed Message Send#%d: %s\n", errno, strerror(errno));
+				}
+			}
+		}
     /*-----------------------------------------------------------------------------------*/
 	
-	
-
-
-    
-
 	for(i = 0; i < parameters->SO_NUM_P; i++){
     	if(pawns[i].assigned > 0){
-	    	printf("Player: %c-------------------------- PEDINA %d (%d,%d) ------------------------\n",player_type, i,pawns[i].starting_x,pawns[i].starting_y );	
+	    	printf("\nPlayer: %c-------------------------- PEDINA %d (%d,%d) ------------------------\n",player_type, pawns[i].type,pawns[i].starting_x,pawns[i].starting_y );	
 	    	for(j = 0; j < flags_number; j++){
-	    		if(pawns[i].assigned > 0)
+	    		if(pawns[i].target[j].x > -1)
 	    			printf("Player: %c %d: Target #%d => (%d,%d) Moves: %d\n",player_type, i, j,pawns[i].target[j].x,pawns[i].target[j].y ,pawns[i].remaining_moves);
 	    		else
 	    			break;
@@ -413,23 +454,13 @@ int main(int argc, char *argv[]){
     	}
     }
 
-	sem_set_val(player_sem_id, 0, parameters->SO_NUM_P);
-	
-	for(i=0; i < parameters->SO_NUM_P; i++){
-		strategy_pawn.mtype = i+1;
-		
-		strncpy(strategy_pawn.strategy, "NNWENESS", 9);
-		
-		/*fprintf(stderr, "MSGSEND: ret: %d, errno: %d, %s\n", test, errno, strerror(errno));*/
-		
-		/*printf("STAMPO STRATEGY DA MANDARE: %s\n", strategy_pawn.strategy);*/
+    
 
-		test = msgsnd(player_msg_id, &strategy_pawn, sizeof(char) *  STRAT_LEN, 0);
-		if(test == -1){
-			fprintf(stderr, "MSGSEND: ret: %d, errno: %d, %s\n", test, errno, strerror(errno));
-		}
-	}
 	
+	
+	
+			/* Wait-for-0 the reception of the Strategy by the Pawns*/
+	/* -------------------------------------------------------------------------- */
 	sem_reserve_0(player_sem_id, 0);
 	/* -------------------------------------------------------------------------- */
 
@@ -505,7 +536,9 @@ int set_pawns(int letter, int parameters_id, int player_msg_id, int chessboard_m
     	success = sem_reserve_1_no_wait(chessboard_sem_id, positions[i]);
     	if(success != -1){
     		current_pos = positions[i];
-    		message_to_pawn.mtype = num_pawn;
+
+    		pawns[num_pawn - 1].type = message_to_pawn.mtype = num_pawn;
+    		
     		message_to_pawn.x = current_pos % columns;
     		message_to_pawn.y = (current_pos - message_to_pawn.x) / columns;
     		
@@ -526,8 +559,8 @@ int set_pawns(int letter, int parameters_id, int player_msg_id, int chessboard_m
 int all_checked_flag(struct flag * flags, int flags_number){
 	int i;
 	for(i = 0; i < flags_number; i++){
-		if(flags[i].checked == 0) return 1;
+		if(flags[i].checked == 0) return 0;
 	}
 
-	return 0;
+	return 1;
 }

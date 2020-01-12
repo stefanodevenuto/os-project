@@ -212,6 +212,7 @@ printf("PID MAster: %d\n", getpid());
     printf("Somma: %d\n", sum);
     /* -------------------------------------------------------------------- */
 
+    print_chessboard(chessboard,chessboard_sem_id,parameters_id, rows, columns);
 
                     /* Set semaphores and wait */
     /* -------------------------------------------------------------------- */
@@ -230,12 +231,14 @@ printf("PID MAster: %d\n", getpid());
     sem_set_val(master_sem_id, MASTER, parameters->SO_NUM_G);    
     /* -------------------------------------------------------------------- */
 
-    print_chessboard(chessboard,chessboard_sem_id,parameters_id, rows, columns);
     
     /* Wait the dead children*/
     while((select = wait(NULL)) != -1);
 		/*printf("Process %d\n", select);*/
+    
     printf("STO PER CANCELLARE TUTTOOOOOOOOOOO\n");
+        print_chessboard(chessboard,chessboard_sem_id,parameters_id, rows, columns);
+
     test = semctl(chessboard_sem_id, 0, IPC_RMID);
     fprintf(stderr,"test: %d, Errno: %d: %s\n", test, errno, strerror(errno));
     semctl(master_sem_id, 0, IPC_RMID);
@@ -244,60 +247,10 @@ printf("PID MAster: %d\n", getpid());
     shmctl(chessboard_mem_id, IPC_RMID, NULL);
     shmctl(positions_id, IPC_RMID, NULL);
 
+
+
 	return 0;
 }
-
-/*int calculate_position(int parameters_id,int chessboard_mem_id,int chessboard_sem_id, int rows, int columns){
-    int i;
-    int j;
-    int pawns_number;
-    int step;
-    int * chessboard;
-    struct param * parameters;
-    int count;
-    int pawn_counter;
-    int num_pawn;
-    int positions_id;
-    int * positions;
-    int index_pos;
-
-    
-    parameters = shmat(parameters_id,NULL,0);
-    chessboard = shmat(chessboard_mem_id,NULL,0);
-
-    positions_id = shmget(POSITIONS_MEM_KEY,sizeof(int) * rows * columns, 0666 | IPC_CREAT);
-    positions = shmat(positions_id,NULL,0);
-
-
-    
-
-    j = 0;
-    pawns_number = parameters->SO_NUM_P * parameters->SO_NUM_G;
-    
-
-    step = (rows * columns) / pawns_number;
-    
-
-    num_pawn = 0;
-    count = 1;
-    index_pos = 0;
-    for(j = 0; j < columns; j++){
-        if(num_pawn == pawns_number) break;
-        for(i = 0; i< rows; i++){
-            if(count == step){
-                if(num_pawn == pawns_number) break;
-                else{
-                    positions[num_pawn] = i * columns + j;
-                    count = 1;
-                    num_pawn++;
-                }
-                
-            }else count++;
-        }
-    }
-
-    return positions_id;
-}*/
 
 int calculate_position(int parameters_id,int chessboard_mem_id,int chessboard_sem_id, int rows, int columns){
     struct param * parameters;
@@ -354,7 +307,7 @@ int calculate_position(int parameters_id,int chessboard_mem_id,int chessboard_se
     
 
     if(perfect_matrix_columns > columns || perfect_matrix_rows > rows){
-        printf("TURBANCE\n");
+       
         perfect_matrix_columns = columns;
         perfect_matrix_rows = rows;
     }

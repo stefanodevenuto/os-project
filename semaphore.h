@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
                        /*       ________ _________ ___  ______  */
 #define MAIN_SEM 55553 /* ---> | MASTER | SYNCHRO | A | START | */
 #define MASTER 0       /*       -------- --------- --- -------  */  
@@ -18,8 +19,13 @@
 #define POSITIONS_MEM_KEY 45632
 #define MUTUAL_TURN 54545
 #define LEN_X_Y 8
-#define STRAT_LEN 300
 
+
+#define LEN_STRATEGY 32
+#define N 0
+#define S 1
+#define E 2
+#define W 3
 
 struct param{
     int SO_NUM_G;
@@ -47,12 +53,16 @@ struct position{
     /*char * strategy;*/
 };
 
-struct strategy{
+
+
+struct player_strategy{
     long mtype;
-    char strategy[STRAT_LEN]; 
+    int directions[4];
+    int flag_x;
+    int flag_y;
+    int flag_position;
+    int selected;
 };
-
-
 
 /*#define POS(row,column) ((row)*(COLUMNS)+(column))*/
 
@@ -99,6 +109,8 @@ int sem_reserve_1(int sem_id, int sem_num);
 
 
 int sem_reserve_1_no_wait(int sem_id, int sem_num);
+
+int sem_reserve_1_time(int sem_id, int sem_num);
 /*
  * Try to access the resource
  * INPUT:

@@ -2,6 +2,7 @@
 
 #include <errno.h>
 #include <unistd.h>
+#include <time.h>
 
 
 
@@ -37,6 +38,20 @@ int sem_reserve_1_no_wait(int sem_id, int sem_num) {
 	sops.sem_op = -1;
 	sops.sem_flg = IPC_NOWAIT;
 	return semop(sem_id, &sops, 1);
+}
+
+int sem_reserve_1_time(int sem_id, int sem_num){
+	struct sembuf sops;
+	struct timespec timeout;
+
+	sops.sem_num = sem_num;
+	sops.sem_op = -1;
+	sops.sem_flg = 0;
+
+	timeout.tv_sec = 0;
+	timeout.tv_nsec = 100000000;
+
+	return semtimedop(sem_id, &sops, 1, &timeout);
 }
 
 int sem_reserve_0(int sem_id, int sem_num) {
