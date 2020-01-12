@@ -177,23 +177,41 @@ int main(int argc, char *argv[]){
 						}else{
 							pawn.directions[N] = strategy.directions[N];
 						}
+					}else{
+						pawn.directions[N] = 0;
 					}
+
 					if(strategy.directions[S] > 0){
 						if(pawn.directions[S] > 0){
 							pawn.directions[S] += strategy.directions[S];
 						}else{
 							pawn.directions[S] = strategy.directions[S];
 						}
+					}else{
+						pawn.directions[S] = 0;
 					}
-					
-							pawn.directions[E] = strategy.directions[E];
-						
-					
-							pawn.directions[W] = strategy.directions[W];
-						
-					
 
-						flag_position = strategy.flag_position;
+					if(strategy.directions[E] > 0){
+						if(pawn.directions[E] > 0){
+							pawn.directions[E] += strategy.directions[E];
+						}else{
+							pawn.directions[E] = strategy.directions[E];
+						}
+					}else{
+						pawn.directions[E] = 0;
+					}
+
+					if(strategy.directions[W] > 0){
+						if(pawn.directions[W] > 0){
+							pawn.directions[W] += strategy.directions[W];
+						}else{
+							pawn.directions[W] = strategy.directions[W];
+						}
+					}else{
+						pawn.directions[W] = 0;
+					}
+
+					flag_position = strategy.flag_position;
 					printf("PERDUTA %c: HO PRESO UN NUOVO MESSAGGIO (%d,%d) e ho (%d,%d,%d,%d)\n", -player_letter,pawn.x, pawn.y, pawn.directions[N], pawn.directions[S], pawn.directions[E], pawn.directions[W]);
 				}else{
 					break;
@@ -262,7 +280,7 @@ int move(int columns, int player_letter, PAWN * pawn, int * chessboard){
 		}else if(result == 1){
 			return 1;
 		}else{
-			autopilot();
+			
 		}
 	}
 
