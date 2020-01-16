@@ -12,21 +12,24 @@
 #define SYNCHRO 1
 #define A 2
 #define START 3
+#define WAIT_END_ROUND 4
 
 #define CHESSBOARD_MEM_KEY 44445
 #define CHESSBOARD_SEM_KEY 33334
 #define PARAMETERS_MEM_KEY 22223
 #define POSITIONS_MEM_KEY 45632
 #define MUTUAL_TURN 54545
+
+
 #define LEN_X_Y 8
-
-
 #define LEN_STRATEGY 32
 #define N 0
 #define S 1
 #define E 2
 #define W 3
 
+#define TO_PLAYER 4
+#define END_ROUND_MESSAGE 12
 struct param{
     int SO_NUM_G;
     int SO_NUM_P;
@@ -62,6 +65,23 @@ struct player_strategy{
     int flag_y;
     int flag_position;
     int selected;
+};
+
+struct pawn_flag{
+    long mtype;
+    int points;
+};
+
+struct message_to_master{
+    long mtype;
+    int total_points;
+};
+
+struct end_round_message{
+    long mtype;
+    int x;
+    int y;
+    int remaining_moves;
 };
 
 /*#define POS(row,column) ((row)*(COLUMNS)+(column))*/

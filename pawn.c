@@ -14,6 +14,9 @@
 #include "semaphore.h"
 
 int chessboard_sem_id;
+long type;
+int player_msg_id_results;
+struct param * parameters;
 
 typedef struct{
 	int x;
@@ -23,14 +26,14 @@ typedef struct{
 } PAWN;
 
 int has_moves(PAWN * pawn);
-int move(int columns, int player_letter, PAWN * pawn, int * chessboard, int rows);
-int move_specific(int way,int player_letter, PAWN * pawn, int * chessboard, int columns);
+int move(int columns, int player_letter, PAWN * pawn, int * chessboard, int rows, int player_msg_id_results, int type, int * taken);
+int move_specific(int way,int player_letter, PAWN * pawn, int * chessboard, int columns, int player_msg_id_results, int type, int * taken);
 int fix_position(PAWN * pawn, int columns, int rows, int * chessboard, int player_letter);
 
 int main(int argc, char *argv[]){
 
 	int parameters_id;
-	struct param * parameters;
+	
 	int player_sem_id;
 	int chessboard_mem_id;
 	int * chessboard;
@@ -39,7 +42,7 @@ int main(int argc, char *argv[]){
 	struct message message_to_pawn;
 	struct player_strategy strategy;
 
-	long type;
+	
 	int player_letter;
 	int a;
 	int master_sem_id;
@@ -51,12 +54,22 @@ int main(int argc, char *argv[]){
 	int rows;
 	int columns;
 	int i;
+	int taken;
 
 	PAWN pawn;
+
+	
+	struct pawn_flag to_player;
+	int flag;
+
+	struct end_round_message end_round_to_players;
 
 	parameters_id = atol(argv[1]);
 	type = atol(argv[2]);
 	player_letter = -atol(argv[3]);
+	player_msg_id_results = atol(argv[4]);
+
+	printf("player_msg_id_results: %d\n", player_msg_id_results);
 
 
 
@@ -64,7 +77,7 @@ int main(int argc, char *argv[]){
 		  /* Getting chessboard, player semaphore and player queue*/
 	/* ---------------------------------------------------------------- */
 	parameters = shmat(parameters_id,NULL,0);
-	player_sem_id = semget(getppid(), 1, 0666);
+	player_sem_id = semget(getppid(), 3, 0666);
 	player_msg_id = msgget(getppid(), 0666);
 	/* ---------------------------------------------------------------- */
 
@@ -81,6 +94,7 @@ int main(int argc, char *argv[]){
 
 	pawn.x = message_to_pawn.x;
 	pawn.y = message_to_pawn.y;
+	pawn.remaining_moves = parameters->SO_N_MOVES;
 
 	
 	if((chessboard_mem_id = shmget(CHESSBOARD_MEM_KEY,sizeof(int) * rows * columns, 0666)) == -1){
@@ -113,6 +127,8 @@ int main(int argc, char *argv[]){
 
 	pawn.directions = (int *)malloc(sizeof(int) * 4);
 
+
+
 	if(strategy.selected == 1){
 
 		pawn.directions[N] = strategy.directions[N];
@@ -142,9 +158,9 @@ int main(int argc, char *argv[]){
 	
 
 
-					/* Wait for 1 on synchro */
+					/* Wait for 1 on START */
     /* ----------------------------------------------------------------- */
-    if((master_sem_id = semget(MAIN_SEM, 4, 0666)) == -1){
+    if((master_sem_id = semget(MAIN_SEM, 5, 0666)) == -1){
 		if(errno == ENOENT)
 			fprintf(stderr, "Failed access to memory for pawns\n");
 		exit(EXIT_FAILURE);
@@ -152,79 +168,65 @@ int main(int argc, char *argv[]){
 	
 	sem_reserve_1(master_sem_id, START);
     /* ----------------------------------------------------------------- */
-
+	taken = 0;
 	if(strategy.selected == 1){
-		while(has_moves(&pawn)){
-
-			if(semctl(chessboard_sem_id, flag_position, GETVAL) == 1){
-				if(move(columns, player_letter, &pawn, chessboard, rows) == 2){
-					if((a = msgrcv(player_msg_id, &strategy,LEN_STRATEGY, type, IPC_NOWAIT)) != -1){
-						pawn.directions[N] = strategy.directions[N];
-						pawn.directions[S] = strategy.directions[S];
-						pawn.directions[E] = strategy.directions[E];
-						pawn.directions[W] = strategy.directions[W];
-
-						flag_position = strategy.flag_position;
-						printf("PRESA IO %c: HO PRESO UN NUOVO MESSAGGIO (%d,%d) e ho (%d,%d,%d,%d)\n",-player_letter, pawn.x, pawn.y, pawn.directions[N], pawn.directions[S], pawn.directions[E], pawn.directions[W]);
-					}else{
-						break;
-					}
-				}	
-			}else{
-				if((a = msgrcv(player_msg_id, &strategy,LEN_STRATEGY, type, IPC_NOWAIT)) != -1){
-					if(strategy.directions[N] > 0){
-						if(pawn.directions[N] > 0){
-							pawn.directions[N] += strategy.directions[N];
-						}else{
-							pawn.directions[N] = strategy.directions[N];
-						}
-					}else{
-						pawn.directions[N] = 0;
-					}
-
-					if(strategy.directions[S] > 0){
-						if(pawn.directions[S] > 0){
-							pawn.directions[S] += strategy.directions[S];
-						}else{
-							pawn.directions[S] = strategy.directions[S];
-						}
-					}else{
-						pawn.directions[S] = 0;
-					}
-
-					if(strategy.directions[E] > 0){
-						if(pawn.directions[E] > 0){
-							pawn.directions[E] += strategy.directions[E];
-						}else{
-							pawn.directions[E] = strategy.directions[E];
-						}
-					}else{
-						pawn.directions[E] = 0;
-					}
-
-					if(strategy.directions[W] > 0){
-						if(pawn.directions[W] > 0){
-							pawn.directions[W] += strategy.directions[W];
-						}else{
-							pawn.directions[W] = strategy.directions[W];
-						}
-					}else{
-						pawn.directions[W] = 0;
-					}
-
-					flag_position = strategy.flag_position;
-					printf("PERDUTA %c: HO PRESO UN NUOVO MESSAGGIO (%d,%d) e ho (%d,%d,%d,%d)\n", -player_letter,pawn.x, pawn.y, pawn.directions[N], pawn.directions[S], pawn.directions[E], pawn.directions[W]);
+		flag = 0;
+		while(1){
+			while(has_moves(&pawn)){
+				if(chessboard[flag_position] > 0){
+					move(columns, player_letter, &pawn, chessboard, rows, player_msg_id_results,type,&taken);
 				}else{
 					break;
 				}
 			}
-		}
+			if((a = msgrcv(player_msg_id, &strategy,LEN_STRATEGY, type, IPC_NOWAIT)) != -1){
+				pawn.directions[N] += strategy.directions[N];
+				pawn.directions[S] += strategy.directions[S];
+				pawn.directions[E] += strategy.directions[E];
+				pawn.directions[W] += strategy.directions[W];
+				flag_position = strategy.flag_position;
 
+				if(pawn.directions[N] > 0 && pawn.directions[S] > 0){
+					if(pawn.directions[N] > pawn.directions[S]){
+						pawn.directions[N] -= pawn.directions[S];
+						pawn.directions[S] = 0;
+					}else{
+						pawn.directions[S] -= pawn.directions[N];
+						pawn.directions[N] = 0;
+					}
+				}
+
+				if(pawn.directions[W] > 0 && pawn.directions[E] > 0){
+					if(pawn.directions[W] > pawn.directions[E]){
+						pawn.directions[W] -= pawn.directions[E];
+						pawn.directions[E] = 0;
+					}else{
+						pawn.directions[E] -= pawn.directions[W];
+						pawn.directions[W] = 0;
+					}
+				}
+			}else break;
+		}	
 	}
+	
+	sem_reserve_1(player_sem_id, 1);
+	printf("UNLOCKATO %c\n", -player_letter);
+	sem_reserve_1(player_sem_id, 3);
+
+	end_round_to_players.mtype = type;
+	end_round_to_players.x = pawn.x;
+	end_round_to_players.y = pawn.y;
+	end_round_to_players.remaining_moves = pawn.remaining_moves;
+
+	if(msgsnd(player_msg_id, &end_round_to_players, END_ROUND_MESSAGE, 0) == -1){
+		fprintf(stderr, "Failed Message Send Presa#%d: %s\n", errno, strerror(errno));
+	}
+
 	free(pawn.directions);
 	/* sem_reserve() => vai a dormire */
-	
 
+
+	
 	/*
 	.
 	.
@@ -234,9 +236,8 @@ int main(int argc, char *argv[]){
 	.
 	.
 	*/
-
+	printf("MUOIO %c\n", -player_letter);
 	exit(EXIT_SUCCESS);
-
 }
 
 int has_moves(PAWN * pawn){
@@ -246,12 +247,13 @@ int has_moves(PAWN * pawn){
 		return 0;
 }
 
-int move(int columns, int player_letter, PAWN * pawn, int * chessboard, int rows, int player_letter){
+int move(int columns, int player_letter, PAWN * pawn, int * chessboard, int rows, int player_msg_id_results, int type, int * taken){
 	
 	int result;
+	struct pawn_flag to_player;
 	result = -1;
 	if(pawn->directions[N] > 0){
-		result = move_specific(N, player_letter, pawn, chessboard, columns);
+		result = move_specific(N, player_letter, pawn, chessboard, columns, player_msg_id_results, type, taken);
 		if(result == 2){
 			return 2;
 		}else if(result == 1){
@@ -259,7 +261,7 @@ int move(int columns, int player_letter, PAWN * pawn, int * chessboard, int rows
 		}
 	}
 	if(pawn->directions[S] > 0){
-		result = move_specific(S, player_letter, pawn, chessboard, columns);
+		result = move_specific(S, player_letter, pawn, chessboard, columns, player_msg_id_results, type, taken);
 		if(result == 2){
 			return 2;
 		}else if(result == 1){
@@ -267,7 +269,7 @@ int move(int columns, int player_letter, PAWN * pawn, int * chessboard, int rows
 		}
 	}
 	if(pawn->directions[E] > 0){
-		result = move_specific(E, player_letter, pawn, chessboard, columns);
+		result = move_specific(E, player_letter, pawn, chessboard, columns, player_msg_id_results, type, taken);
 		if(result == 2){
 			return 2;
 		}else if(result == 1){
@@ -275,7 +277,7 @@ int move(int columns, int player_letter, PAWN * pawn, int * chessboard, int rows
 		}
 	}
 	if(pawn->directions[W] > 0){
-		result = move_specific(W, player_letter, pawn, chessboard, columns);
+		result = move_specific(W, player_letter, pawn, chessboard, columns, player_msg_id_results, type, taken);
 		if(result == 2){
 			return 2;
 		}else if(result == 1){
@@ -283,43 +285,48 @@ int move(int columns, int player_letter, PAWN * pawn, int * chessboard, int rows
 		}
 	}
 
-	if(result == 0){
-		printf("SONO BLOCCATA\n");
-		return fix_position(pawn, columns, rows, chessboard, player_letter);
-	}
+	printf("MI SONO BLOCCATA AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n");
+	pawn->directions[N] = 0;
+	pawn->directions[S] = 0;
+	pawn->directions[E] = 0;
+	pawn->directions[W] = 0;
 
-	
-	
 	return 0;
 }
 
-int move_specific(int way,int player_letter, PAWN * pawn, int * chessboard, int columns){
+int move_specific(int way,int player_letter, PAWN * pawn, int * chessboard, int columns, int player_msg_id_results, int type, int * taken){
 	
 	struct timespec timeout;
-	int points;
-	points = 0;
+	struct pawn_flag to_player;
+	int flag;
+	flag = 0;
+	
 	timeout.tv_sec = 0;
-	timeout.tv_nsec = 100000000;
+	timeout.tv_nsec = parameters->SO_MIN_HOLD_NSEC;
 	switch(way){
 		case W:
 			if(sem_reserve_1_time(chessboard_sem_id, pawn->y * columns + (pawn->x - 1)) != -1){
 				/* Forse da fare controllo se ho preso una bandierina */
 				pawn->x--;
 				if(chessboard[pawn->y * columns + pawn->x] > 0){
-					points = chessboard[pawn->y * columns + pawn->x];
+					to_player.points = chessboard[pawn->y * columns + pawn->x];
+					to_player.mtype = type;
+					flag = 1;
+					printf("INVIO MESSAGGIO PRESA BANDIERA %c PEDINA: %d\n", -player_letter, type);
+					*taken = 1;
+					if(msgsnd(player_msg_id_results, &to_player, TO_PLAYER, 0) == -1){
+					   	fprintf(stderr, "Failed Message Send Presa#%d: %s\n", errno, strerror(errno));
+					}
 					printf("%c : PRESA BANDIERA (%d,%d)\n", -player_letter, pawn->x , pawn->y);
 				}
 				chessboard[pawn->y * columns + pawn->x] = player_letter;
-				if(player_letter == -65)
-					chessboard[pawn->y * columns + (pawn->x + 1)] = -67;
-				else
-					chessboard[pawn->y * columns + (pawn->x + 1)] = -68;
+				chessboard[pawn->y * columns + (pawn->x + 1)] = 0;
 				sem_release(chessboard_sem_id, pawn->y * columns + (pawn->x + 1));
 				pawn->remaining_moves--;
 				pawn->directions[W]--;
 				/* NANOSLEEP */
 				nanosleep(&timeout, NULL);
-				if(points > 0){
+				if(flag > 0){
 					return 2;
 				}else{
 					return 1;
@@ -332,20 +339,24 @@ int move_specific(int way,int player_letter, PAWN * pawn, int * chessboard, int 
 				pawn->x++;
 
 				if(chessboard[pawn->y * columns + pawn->x] > 0){
-					points = chessboard[pawn->y * columns + pawn->x];
+					to_player.points = chessboard[pawn->y * columns + pawn->x];
+					to_player.mtype = type;
+					flag = 1;
+					printf("INVIO MESSAGGIO PRESA BANDIERA %c PEDINA: %d\n", -player_letter, type);
+					*taken = 1;
+					if(msgsnd(player_msg_id_results, &to_player, TO_PLAYER, 0) == -1){
+					   	fprintf(stderr, "Failed Message Send Presa#%d: %s\n", errno, strerror(errno));
+					}
 					printf("%c : PRESA BANDIERA (%d,%d)\n", -player_letter, pawn->x , pawn->y);
 				}
 
 				chessboard[pawn->y * columns + pawn->x] = player_letter;
-				if(player_letter == -65)
-					chessboard[pawn->y * columns + (pawn->x - 1)] = -67;
-				else
-					chessboard[pawn->y * columns + (pawn->x - 1)] = -68;
+				chessboard[pawn->y * columns + (pawn->x - 1)] = 0;
 				sem_release(chessboard_sem_id, pawn->y * columns + (pawn->x - 1));
 				pawn->remaining_moves--;
 				pawn->directions[E]--;
 				nanosleep(&timeout, NULL);
-				if(points > 0){
+				if(flag > 0){
 					return 2;
 				}else{
 					return 1;
@@ -360,20 +371,24 @@ int move_specific(int way,int player_letter, PAWN * pawn, int * chessboard, int 
 				pawn->y++;
 
 				if(chessboard[pawn->y * columns + pawn->x] > 0){
-					points = chessboard[pawn->y * columns + pawn->x];
+					to_player.points = chessboard[pawn->y * columns + pawn->x];
+					to_player.mtype = type;
+					flag = 1;
+					printf("INVIO MESSAGGIO PRESA BANDIERA %c PEDINA: %d\n", -player_letter, type);
+					*taken = 1;
+					if(msgsnd(player_msg_id_results, &to_player, TO_PLAYER, 0) == -1){
+					   	fprintf(stderr, "Failed Message Send Presa#%d: %s\n", errno, strerror(errno));
+					}
 					printf("%c : PRESA BANDIERA (%d,%d)\n", -player_letter, pawn->x , pawn->y);
 				}
 
 				chessboard[pawn->y * columns + pawn->x] = player_letter;
-				if(player_letter == -65)
-					chessboard[(pawn->y - 1) * columns + pawn->x] = -67;
-				else
-					chessboard[(pawn->y - 1) * columns + pawn->x] = -68;
+				chessboard[(pawn->y - 1) * columns + pawn->x] = 0;
 				sem_release(chessboard_sem_id, (pawn->y - 1) * columns + pawn->x);
 				pawn->remaining_moves--;
 				pawn->directions[S]--;
 				nanosleep(&timeout, NULL);
-				if(points > 0){
+				if(flag > 0){
 					return 2;
 				}else{
 					return 1;
@@ -387,20 +402,24 @@ int move_specific(int way,int player_letter, PAWN * pawn, int * chessboard, int 
 				pawn->y--;
 
 				if(chessboard[pawn->y * columns + pawn->x] > 0){
-					points = chessboard[pawn->y * columns + pawn->x];
+					to_player.points = chessboard[pawn->y * columns + pawn->x];
+					to_player.mtype = type;
+					flag = 1;
+					printf("INVIO MESSAGGIO PRESA BANDIERA %c PEDINA: %d\n", -player_letter, type);
+					*taken = 1;
+					if(msgsnd(player_msg_id_results, &to_player, TO_PLAYER, 0) == -1){
+					   	fprintf(stderr, "Failed Message Send Presa#%d: %s\n", errno, strerror(errno));
+					}
 					printf("%c : PRESA BANDIERA (%d,%d)\n", -player_letter, pawn->x , pawn->y);
 				}
 
 				chessboard[pawn->y * columns + pawn->x] = player_letter;
-				if(player_letter == -65)
-					chessboard[(pawn->y + 1) * columns + pawn->x] = -67;
-				else
-					chessboard[(pawn->y + 1) * columns + pawn->x] = -68;
+				chessboard[(pawn->y + 1) * columns + pawn->x] = 0;
 				sem_release(chessboard_sem_id, (pawn->y + 1) * columns + pawn->x);
 				pawn->remaining_moves--;
 				pawn->directions[N]--;
 				nanosleep(&timeout, NULL);
-				if(points > 0){
+				if(flag > 0){
 					return 2;
 				}else{
 					return 1;
@@ -415,179 +434,3 @@ int move_specific(int way,int player_letter, PAWN * pawn, int * chessboard, int 
 	}
 }
 
-int fix_position(PAWN * pawn, int columns, int rows, int * chessboard, int player_letter){
-	if(pawn->directions[N] > 0){
-		if(pawn->directions[E] > 0){
-			/* controllo W */
-			/* controllo S */
-			if(pawn->x-1 >= 0 && semctl(chessboard_sem_id, pawn->y * columns + (pawn->x-1), GETVAL) == 1){
-				if(pawn->y + 1 <= rows && semctl(chessboard_sem_id, (pawn->y+1) * columns + pawn->x, GETVAL) == 1){
-					while(/* uno dei due non è occupato */){
-						/* controllo N/W e S/E */
-					}
-				}else{
-					return move_specific(W, player_letter, pawn, chessboard, columns);
-				}
-			}else{
-				if(pawn->y + 1 <= rows && semctl(chessboard_sem_id, (pawn->y+1) * columns + pawn->x, GETVAL) == 1){
-					return move_specific(S, player_letter, pawn, chessboard, columns);
-				}else{
-					/* QUA DEVI FERMARTI DIO FA => azzera le mosse disponibili */
-					/*while( uno dei due non è libero ){
-						 controllo N/W e S/E 
-					}*/	
-				}
-			}
-		}else if(pawn->directions[W] > 0){
-			/* controllo E */
-			/* controllo S */
-			if(pawn->x+1 <= columns && semctl(chessboard_sem_id, pawn->y * columns + (pawn->x+1), GETVAL) == 1){
-				if(pawn->y + 1 <= rows && semctl(chessboard_sem_id, (pawn->y+1) * columns + pawn->x, GETVAL) == 1){
-					while(/* uno dei due non è occupato */){
-						/* controllo N/E e S/W */
-					}
-				}else{
-					return move_specific(E, player_letter, pawn, chessboard, columns);
-				}
-			}else{
-				if(pawn->y + 1 <= rows && semctl(chessboard_sem_id, (pawn->y+1) * columns + pawn->x, GETVAL) == 1){
-					return move_specific(S, player_letter, pawn, chessboard, columns);
-				}else{
-					while(/* uno dei due non è libero */){
-						/* controllo N/E e S/W */
-					}
-				}
-			}
-		}else{
-			/* controllo E */
-			/* controllo W */
-			if(pawn->x+1 <= columns && semctl(chessboard_sem_id, pawn->y * columns + (pawn->x+1), GETVAL) == 1){
-				if(pawn->x-1 >= 0 && semctl(chessboard_sem_id, pawn->y * columns + (pawn->x-1), GETVAL) == 1){
-					while(/* uno dei due non è occupato */){
-						/* controllo N/E e N/W */
-					}
-				}else{
-					return move_specific(E, player_letter, pawn, chessboard, columns);
-				}
-			}else{
-				if(pawn->x-1 >= 0 && semctl(chessboard_sem_id, pawn->y * columns + (pawn->x-1), GETVAL) == 1){
-					return move_specific(W, player_letter, pawn, chessboard, columns);
-				}else{
-					while(/* uno dei due non è libero */){
-						/* controllo N/E e N/W */
-					}
-				}
-			}
-
-		}
-		
-	}
-
-	if(pawn->directions[S] > 0){
-		if(pawn->directions[E] > 0){
-			/* controllo W */
-			/* controllo N */
-			if(pawn->x-1 >= 0 && semctl(chessboard_sem_id, pawn->y * columns + (pawn->x-1), GETVAL) == 1){
-				if(pawn->y-1 >= 0 && semctl(chessboard_sem_id, (pawn->y-1) * columns + pawn->x, GETVAL) == 1){
-					while(/* uno dei due non è occupato */){
-						/* controllo N/E e S/W */
-					}
-				}else{
-					return move_specific(W, player_letter, pawn, chessboard, columns);
-				}
-			}else{
-				if(pawn->y-1 >= 0 && semctl(chessboard_sem_id, (pawn->y-1) * columns + pawn->x, GETVAL) == 1){
-					return move_specific(N, player_letter, pawn, chessboard, columns);
-				}else{
-					while(/* uno dei due non è libero */){
-						/* controllo N/E e S/W */
-					}
-				}
-			}
-		}else if(pawn->directions[W] > 0){
-			/* controllo N */
-			/* controllo E */
-			if(pawn->x+1 <= columns && semctl(chessboard_sem_id, pawn->y * columns + (pawn->x+1), GETVAL) == 1){
-				if(pawn->y-1 >= 0 && semctl(chessboard_sem_id, (pawn->y-1) * columns + pawn->x, GETVAL) == 1){
-					while(/* uno dei due non è occupato */){
-						/* controllo N/W e S/E */
-					}
-				}else{
-					return move_specific(E, player_letter, pawn, chessboard, columns);
-				}
-			}else{
-				if(pawn->y-1 >= 0 && semctl(chessboard_sem_id, (pawn->y-1) * columns + pawn->x, GETVAL) == 1){
-					return move_specific(N, player_letter, pawn, chessboard, columns);
-				}else{
-					while(/* uno dei due non è libero */){
-						/* controllo N/W e S/E */
-					}
-				}
-			}
-		}else{
-			/* controllo E */
-			/* controllo W */
-			if(pawn->x+1 <= columns && semctl(chessboard_sem_id, pawn->y * columns + (pawn->x+1), GETVAL) == 1){
-				if(pawn->x-1 >= 0 && semctl(chessboard_sem_id, pawn->y * columns + (pawn->x-1), GETVAL) == 1){
-					while(/* uno dei due non è occupato */){
-						/* controllo S/E e S/W */
-					}
-				}else{
-					return move_specific(E, player_letter, pawn, chessboard, columns);
-				}
-			}else{
-				if(pawn->x-1 >= 0 && semctl(chessboard_sem_id, pawn->y * columns + (pawn->x-1), GETVAL) == 1){
-					move_specific(W, player_letter, pawn, chessboard, columns);
-				}else{
-					while(/* uno dei due non è libero */){
-						/* controllo S/E e S/W */
-					}
-				}
-			}
-
-		}
-	}
-
-	if(pawn->directions[E] > 0){
-		/* controllo N */
-		/* controllo S */
-		if(pawn->y-1 >= 0 && semctl(chessboard_sem_id, (pawn->y-1) * columns + pawn->x, GETVAL) == 1){
-			if(pawn->y + 1 <= rows && semctl(chessboard_sem_id, (pawn->y+1) * columns + pawn->x, GETVAL) == 1){
-				while(/* uno dei due non è occupato */){
-					/* controllo N/E e S/E */
-				}
-			}else{
-				return move_specific(N, player_letter, pawn, chessboard, columns);
-			}
-		}else{
-			if(pawn->y + 1 <= rows && semctl(chessboard_sem_id, (pawn->y+1) * columns + pawn->x, GETVAL) == 1){
-				return move_specific(S, player_letter, pawn, chessboard, columns);
-			}else{
-				while(/* uno dei due non è libero */){
-					/* controllo N/E e S/E */
-				}
-			}
-		}
-	}
-	if(pawn->directions[W] > 0){
-		/* controllo N */
-		/* controllo S */
-		if(pawn->y-1 >= 0 && semctl(chessboard_sem_id, (pawn->y-1) * columns + pawn->x, GETVAL) == 1){
-			if(pawn->y + 1 <= rows && semctl(chessboard_sem_id, (pawn->y+1) * columns + pawn->x, GETVAL) == 1){
-				while(/* uno dei due non è occupato */){
-					/* controllo N/W e S/W */
-				}
-			}else{
-				return move_specific(N, player_letter, pawn, chessboard, columns);
-			}
-		}else{
-			if(pawn->y + 1 <= rows && semctl(chessboard_sem_id, (pawn->y+1) * columns + pawn->x, GETVAL) == 1){
-				return move_specific(S, player_letter, pawn, chessboard, columns);
-			}else{
-				while(/* uno dei due non è libero */){
-					/* controllo N/W e S/W */
-				}
-			}
-		}
-	}
-}

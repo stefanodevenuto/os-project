@@ -14,10 +14,15 @@
 #include <math.h>
 #include "semaphore.h"
 
+typedef struct{
+    int points;
+    int used_moves;
+} PLAYER;
+
 int set_parameters();
 void print_chessboard(int * chessboard, int chessboard_sem_id,int parameters_id, int rows, int columns);
 int calculate_position(int parameters_id,int chessboard_mem_id,int chessboard_sem_id, int rows, int columns);
-void handle_signal(int signal);
+void sigint_handler(int signal);
 
 int main(int argc, char const *argv[]){
 
@@ -67,18 +72,20 @@ int main(int argc, char const *argv[]){
     int switch_color_pawn;
     int positions_id;
 
+    int master_msg_id;
+    PLAYER * players;
+    struct message_to_master player_points;
+    struct pawn_flag receive_points;
+
     bzero(&sa, sizeof(sa));
 
-    sa.sa_handler = handle_signal;
+    sa.sa_handler = sigint_handler;
 
     sigaction(SIGINT, &sa, NULL);
 	
-    /*int semid;
-    char my_string[100];*/
 
-    /* Setting the enviroment variable 
-    set_env();*/
-printf("PID MAster: %d\n", getpid());
+    
+    printf("PID MAster: %d\n", getpid());
     /* Unset the buffering of the streams stdout and stderr*/
     setvbuf(stdout, NULL, _IONBF, 0);
 	setvbuf(stderr, NULL, _IONBF, 0);
@@ -119,6 +126,8 @@ printf("PID MAster: %d\n", getpid());
 
     chessboard_sem_id = semget(CHESSBOARD_SEM_KEY, rows * columns, 0666 | IPC_CREAT);
 
+    master_msg_id = msgget(getpid(), 0666 | IPC_CREAT);
+
     for(i=0; i<rows; i++){
         for(j=0; j<columns; j++){
             chessboard[i * parameters->SO_BASE + i] = 0;
@@ -127,9 +136,21 @@ printf("PID MAster: %d\n", getpid());
     }
     /* -------------------------------------------------------------------- */
 
+    players = (PLAYER *)malloc(sizeof(PLAYER) * parameters->SO_NUM_G);
+
+    for(i = 0; i < parameters->SO_NUM_G; i++){
+        players[i].points = 0;
+        players[i].used_moves = 0;
+    }
+
     positions_id = calculate_position(parameters_id,chessboard_mem_id, chessboard_sem_id, rows, columns);
 
-	/*Creation of the Players*/
+	                   /* Create Main Semaphore */
+    /* ----------------------------------------------------------------------------*/
+    master_sem_id = semget(MAIN_SEM, 5, 0666 | IPC_CREAT);
+    /* ----------------------------------------------------------------------------*/
+
+    /*Creation of the Players*/
     for (index_child = 0; index_child < parameters->SO_NUM_G; index_child++){
         printf("%d\n", parameters->SO_NUM_G);
     	switch(fork()){
@@ -153,9 +174,8 @@ printf("PID MAster: %d\n", getpid());
     }
 
 
-                        /* Setting semaphores*/
-    /* ----------------------------------------------------------------------------*/
-    master_sem_id = semget(MAIN_SEM, 4, 0666 | IPC_CREAT);
+                        
+    
     
     /* Used for the wait-for-zero for the master by players*/
     sem_set_val(master_sem_id, SYNCHRO, 0);
@@ -187,9 +207,9 @@ printf("PID MAster: %d\n", getpid());
     flag_number = rand() % (parameters->SO_FLAG_MAX - parameters->SO_FLAG_MIN + 1) + parameters->SO_FLAG_MIN;
 
     sum  = 0;
-    for(i = flag_number - 1; i != 0 ; i--){
+    for(i = flag_number; i > 1 ; i--){
         media = total_score/i;
-        num = rand() % media  + 1;
+        num = (rand() % media)  + 1;
         pos = rand() % (rows * columns);
         if(chessboard[pos] == 0){
             sum += num;
@@ -216,11 +236,9 @@ printf("PID MAster: %d\n", getpid());
 
                     /* Set semaphores and wait */
     /* -------------------------------------------------------------------- */
-    printf("Setto A a %d\n", parameters->SO_NUM_G);
     sem_set_val(master_sem_id, A, parameters->SO_NUM_G);
-    printf("--------------------------Setto SYNCHRO a %d\n", parameters->SO_NUM_G);
+
     sem_set_val(master_sem_id, SYNCHRO, parameters->SO_NUM_G);
-    printf("SYNCHRO e' settato a:  %d\n", semctl(master_sem_id, SYNCHRO, GETVAL));
     
     sem_reserve_0(master_sem_id, A);
     /* -------------------------------------------------------------------- */
@@ -228,7 +246,33 @@ printf("PID MAster: %d\n", getpid());
 
                     /* Unblock players and START GAME */
     /* -------------------------------------------------------------------- */
-    sem_set_val(master_sem_id, MASTER, parameters->SO_NUM_G);    
+    alarm(parameters->SO_MAX_TIME);
+    sem_set_val(master_sem_id, MASTER, parameters->SO_NUM_G); 
+    /* -------------------------------------------------------------------- */
+
+
+                    /* Wait the players messages*/
+    /* -------------------------------------------------------------------- */
+    for(i = 0; i < flag_number; i++){
+        if((test = msgrcv(master_msg_id, &receive_points,TO_PLAYER, 0, 0)) == -1){
+            fprintf(stderr, "MSGRCV MASTER FAILED: ret: %d, errno: %d, %s\n", test, errno, strerror(errno));
+        }else{
+            printf("LETTO MESSAGGIO MASTER %d\n", receive_points.points);
+            players[receive_points.mtype-65].points += receive_points.points;
+        }
+    }
+    alarm(0);
+
+    sem_set_val(master_sem_id, WAIT_END_ROUND, parameters->SO_NUM_G);
+
+
+    for (i = 0; i < parameters->SO_NUM_G; i++){
+        if((test = msgrcv(master_msg_id, &receive_points,TO_PLAYER, 0, 0)) == -1){
+            fprintf(stderr, "MSGRCV MASTER FAILED: ret: %d, errno: %d, %s\n", test, errno, strerror(errno));
+        }else{
+            players[receive_points.mtype-65].used_moves += receive_points.points;
+        }
+    }
     /* -------------------------------------------------------------------- */
 
     
@@ -236,17 +280,21 @@ printf("PID MAster: %d\n", getpid());
     while((select = wait(NULL)) != -1);
 		/*printf("Process %d\n", select);*/
     
-    printf("STO PER CANCELLARE TUTTOOOOOOOOOOO\n");
-        print_chessboard(chessboard,chessboard_sem_id,parameters_id, rows, columns);
+    for(i = 0; i < parameters->SO_NUM_G; i++){
+        printf("PLAYER %c: POINTS: %d USED MOVES: %d\n", i+65, players[i].points, players[i].used_moves);
+    }
 
-    test = semctl(chessboard_sem_id, 0, IPC_RMID);
-    fprintf(stderr,"test: %d, Errno: %d: %s\n", test, errno, strerror(errno));
+
+    free(players);
+    print_chessboard(chessboard,chessboard_sem_id,parameters_id, rows, columns);
+
+    semctl(chessboard_sem_id, 0, IPC_RMID);
     semctl(master_sem_id, 0, IPC_RMID);
     semctl(turn_sem_id, 0, IPC_RMID);
     shmctl(parameters_id, IPC_RMID, NULL);
     shmctl(chessboard_mem_id, IPC_RMID, NULL);
     shmctl(positions_id, IPC_RMID, NULL);
-
+    msgctl(master_msg_id, IPC_RMID, NULL);
 
 
 	return 0;
@@ -509,6 +557,6 @@ void print_chessboard(int * chessboard, int chessboard_sem_id,int parameters_id,
     }
 }
 
-void handle_signal(int signal){
+void sigint_handler (int signal){
     printf("HANDLER SIGINT\n");
 }

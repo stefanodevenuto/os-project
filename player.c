@@ -73,6 +73,7 @@ int main(int argc, char *argv[]){
 
 	char sprintf_parameters_id[200];
 	char sprintf_letter[200];
+	char sprintf_player_msg_id_results[200];
 
 	char * strat;
 
@@ -127,6 +128,23 @@ int main(int argc, char *argv[]){
 
 	struct player_strategy strategy;
 
+	int player_msg_id_results;
+
+	int to_receive_targets;
+	struct pawn_flag to_player;
+	int total_points;
+
+	int master_msg_id;
+	struct pawn_flag to_master;
+
+	int wait_pawns_player_sem_id;
+
+	struct end_round_message end_round_from_pawn;
+
+	int total_used_moves;
+	int total_remaining_moves;
+	struct pawn_flag moves_to_master;
+
 	
 				/* Checking passed arguments */
 	/* ---------------------------------------------------------------- */
@@ -146,11 +164,13 @@ int main(int argc, char *argv[]){
 	
 	parameters = shmat(parameters_id,NULL,0);
 
-	master_sem_id = semget(MAIN_SEM, 4, 0666);
+	master_sem_id = semget(MAIN_SEM, 5, 0666);
     
+    total_points = 0;
 
 	
     sprintf (sprintf_parameters_id, "%d", parameters_id);
+    
 
     
     				/* Setting pawns parameters */
@@ -160,6 +180,7 @@ int main(int argc, char *argv[]){
     /* wait type on args[2]*/
     /* wait letter to pawn on args[3]*/
     args[4] = NULL;
+    args[5] = NULL;
     /* -------------------------------------------------------- */
 
 	setvbuf(stdout, NULL, _IONBF, 0);
@@ -182,7 +203,7 @@ int main(int argc, char *argv[]){
 
 			/* Access and set pawn semaphore to wait pawns*/
 	/* -----------------------------------------------------------------*/
-	if((player_sem_id = semget(getpid(), 1, 0666 | IPC_CREAT)) == -1){
+	if((player_sem_id = semget(getpid(), 3, 0666 | IPC_CREAT)) == -1){
 		if(errno == ENOENT)
 			fprintf(stderr, "Failed semaphore for pawns\n");
 		exit(EXIT_FAILURE);
@@ -193,6 +214,8 @@ int main(int argc, char *argv[]){
 
     /* ----- Setting message queue for players------ */
     player_msg_id = msgget(getpid(), 0666 | IPC_CREAT);
+    player_msg_id_results = msgget(IPC_PRIVATE, 0666);
+    master_msg_id = msgget(getppid(), 0666);
 
 
     pawns = malloc(sizeof(struct pawn) * parameters->SO_NUM_P);
@@ -237,6 +260,8 @@ int main(int argc, char *argv[]){
 
     		sprintf (sprintf_type, "%d", i+1);
     		args[2] = sprintf_type;
+    		sprintf (sprintf_player_msg_id_results, "%d", player_msg_id_results);
+    		args[4] = sprintf_player_msg_id_results;
     		if(execve("./pawn", args, NULL)){
     			fprintf(stderr, "Execve() failed #%d : %s\n", errno, strerror(errno));
     			exit(EXIT_FAILURE);
@@ -266,7 +291,7 @@ int main(int argc, char *argv[]){
 				/* Unblock pawns by send strategy and wait for them */
 	/* -------------------------------------------------------------------------- */
     target_count = 0;
-    
+    to_receive_targets = 0;
     
 
     flags = malloc(sizeof(struct flag));
@@ -412,6 +437,8 @@ int main(int argc, char *argv[]){
 			    	
 			    	pawns[i].assigned += 1;
 
+			    	to_receive_targets++;
+
 					if((success = msgsnd(player_msg_id, &strategy, LEN_STRATEGY, 0)) == -1){
 					   	fprintf(stderr, "Failed Message Send#%d: %s\n", errno, strerror(errno));
 					}
@@ -454,8 +481,6 @@ int main(int argc, char *argv[]){
     	}
     }
 
-    
-
 	
 	
 	
@@ -464,6 +489,10 @@ int main(int argc, char *argv[]){
 	sem_reserve_0(player_sem_id, 0);
 	/* -------------------------------------------------------------------------- */
 
+				/* Set entry PLAYER to wait the flag messages */
+	/* -------------------------------------------------------------------------- */
+	sem_set_val(player_sem_id, 1, parameters->SO_NUM_P);
+	/* -------------------------------------------------------------------------- */
 
 					/* Unblock master and wait for him */
 	/* -------------------------------------------------------------------------- */
@@ -476,10 +505,66 @@ int main(int argc, char *argv[]){
 	/* -------------------------------------------------------------------------- */
 	sem_set_val(master_sem_id, START, parameters->SO_NUM_P * parameters->SO_NUM_G);
 	/* -------------------------------------------------------------------------- */
-    
+
+
+					/* Wait for 0 on WAIT_PLAYER */
+	/* -------------------------------------------------------------------------- */
+	sem_reserve_0(player_sem_id, 1);
+	/* -------------------------------------------------------------------------- */
+
+	printf("SUPERATO\n");
+					/* Read taken-or-not flag messages*/
+	/* -------------------------------------------------------------------------- */
+	i=0;
+	while((a = msgrcv(player_msg_id_results, &to_player,TO_PLAYER, 0, IPC_NOWAIT)) != -1){
+		printf("Player %c : Letto messaggio #%d  %d\n",player_type, i+1, player_msg_id_results);
+		total_points += to_player.points;
+		to_master.mtype = player_type;
+		to_master.points = to_player.points;
+		if(msgsnd(master_msg_id, &to_master, TO_PLAYER, 0) == -1){
+			fprintf(stderr, "Failed Message Send PUNTEGGIO#%d: %s\n", errno, strerror(errno));
+		}else{
+			printf("-------- MESSAGGIO A MASTER ------\n");
+		}
+		i++;
+	}
+	printf("PUNTI TOTALI %c : %d\n", player_type, total_points);
+	/* -------------------------------------------------------------------------- */
+
+
+	sem_set_val(player_sem_id,2,parameters->SO_NUM_P);
+
+
+	total_remaining_moves = 0;
+
+	for(i = 0; i < parameters->SO_NUM_P; i++){
+		if((a = msgrcv(player_msg_id, &end_round_from_pawn,END_ROUND_MESSAGE, 0, 0)) != -1){
+			printf("x: %d\n", end_round_from_pawn.x);
+			printf("y: %d\n", end_round_from_pawn.y);
+			printf("rem_moves: %d\n", end_round_from_pawn.remaining_moves);
+			total_remaining_moves += end_round_from_pawn.remaining_moves;
+		}else{
+			fprintf(stderr, "Errore Receive Message PLAYER\n");
+		}
+	}
+
+    total_used_moves = (parameters->SO_N_MOVES * parameters->SO_NUM_P) - total_remaining_moves;
+
+    printf("MOSSE TOTALI RIMASTE %c : %d\n", player_type, total_used_moves);
+
+    sem_reserve_1(master_sem_id, WAIT_END_ROUND);
+
+    moves_to_master.mtype = player_type;
+    moves_to_master.points = total_used_moves;
+
+
+    if(msgsnd(master_msg_id, &moves_to_master, TO_PLAYER, 0) == -1){
+		fprintf(stderr, "Failed Message Send PUNTEGGIO#%d: %s\n", errno, strerror(errno));
+	}else{
+		printf("-------- MESSAGGIO A MASTER ------\n");
+	}
 
     while((select = wait(NULL)) != -1);
-
 
     for(i = 0; i < parameters->SO_NUM_P; i++){
     	free(pawns[i].target);
@@ -489,11 +574,14 @@ int main(int argc, char *argv[]){
 
     free(flags);
     free(pawns);
+
+    printf("MORTE TUTTE LE PAWN %c\n", player_type);
+    
     
 
     semctl(player_sem_id, 0, IPC_RMID);
     msgctl(player_msg_id, IPC_RMID, NULL);
-    
+    msgctl(player_msg_id_results, IPC_RMID, NULL);    
     
 	exit(EXIT_SUCCESS);
 }
@@ -501,7 +589,6 @@ int main(int argc, char *argv[]){
 int set_pawns(int letter, int parameters_id, int player_msg_id, int chessboard_mem_id, int chessboard_sem_id, int rows, int columns, struct pawn * pawns){
 	static int num_pawn = 1;
 	
-
 	int positions_id;
 	int * positions;
 	int current_pos;
