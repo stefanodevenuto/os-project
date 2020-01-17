@@ -24,6 +24,7 @@ int parameters_id;
 int positions_id;
 int master_msg_id;
 int * chessboard;
+int play_time;
 
 typedef struct{
     int pid;
@@ -99,15 +100,14 @@ int main(int argc, char const *argv[]){
 	
 
     
-    printf("PID MAster: %d\n", getpid());
     /* Unset the buffering of the streams stdout and stderr*/
     setvbuf(stdout, NULL, _IONBF, 0);
 	setvbuf(stderr, NULL, _IONBF, 0);
 	
 	/* Get and parse of the set enviroment */
 	
-    parameters_id = set_parameters();
-    parameters = shmat(parameters_id,NULL,0);
+    set_parameters();
+    
 
     sprintf (sprintf_parameters_id, "%d", parameters_id);
 
@@ -166,7 +166,6 @@ int main(int argc, char const *argv[]){
 
     /*Creation of the Players*/
     for (index_child = 0; index_child < parameters->SO_NUM_G; index_child++){
-        printf("%d\n", parameters->SO_NUM_G);
     	switch(players[index_child].pid = fork()){
     		case -1:
     			fprintf(stderr, "Failed to Fork Players%s\n");
@@ -202,15 +201,12 @@ int main(int argc, char const *argv[]){
 
                         /* Wait players */    
     /* ----------------------------------------------------------------------------*/
-    printf("Master aspetta %d\n", MAIN_SEM);
-
+    
     sem_reserve_0(master_sem_id, MASTER);
     
-    fprintf(stdout,"Master SINCRONIZZATO\n");
     /* ----------------------------------------------------------------------------*/
 
     while(1){
-        printf("METTO LE FLAGS\n");
                     /* Calculation of flags and their scores*/
         /* -------------------------------------------------------------------- */
         total_score = parameters->SO_ROUND_SCORE;
@@ -228,7 +224,6 @@ int main(int argc, char const *argv[]){
                 sum += num;
                 chessboard[pos] = num;
                 total_score -= num;
-                printf("%d \n", num);
             }else{
                 i++;
             }
@@ -238,11 +233,9 @@ int main(int argc, char const *argv[]){
             if(chessboard[pos] == 0){
                 sum += total_score;
                 chessboard[pos] = total_score;
-                printf("%d \n", total_score);
                 break;
             }
         }
-        printf("Somma: %d\n", sum);
         /* -------------------------------------------------------------------- */
 
         print_chessboard(chessboard,chessboard_sem_id,parameters_id, rows, columns);
@@ -270,12 +263,12 @@ int main(int argc, char const *argv[]){
             if((test = msgrcv(master_msg_id, &receive_points,TO_PLAYER, 0, 0)) == -1){
                 fprintf(stderr, "MSGRCV MASTER FAILED: ret: %d, errno: %d, %s\n", test, errno, strerror(errno));
             }else{
-                printf("LETTO MESSAGGIO FLAG %d\n", receive_points.points);
+                
                 players[receive_points.mtype-65].points += receive_points.points;
             }
         }
         
-        alarm(0);
+        play_time = alarm(0);
         round_number++;
         sem_set_val(master_sem_id, WAIT_END_ROUND, parameters->SO_NUM_G);
 
@@ -284,7 +277,7 @@ int main(int argc, char const *argv[]){
             if((test = msgrcv(master_msg_id, &receive_points,TO_PLAYER, 0, 0)) == -1){
                 fprintf(stderr, "MSGRCV MASTER FAILED: ret: %d, errno: %d, %s\n", test, errno, strerror(errno));
             }else{
-                printf("LETTO MESSAGGIO MOSSE\n");
+                
                 players[receive_points.mtype-65].used_moves += receive_points.points;
             }
         }
@@ -337,9 +330,6 @@ int calculate_position(int parameters_id,int chessboard_mem_id,int chessboard_se
     positions = shmat(positions_id,NULL,0);
 
 
-    printf("pawns_number: %d\n", pawns_number);
-    printf("rad of pawns_number: %f, ceil: %f\n", sqrt(pawns_number), ceil(sqrt(pawns_number)));
-
     if(columns > rows){
         perfect_matrix_columns = ceil(sqrt(pawns_number));
         
@@ -361,10 +351,6 @@ int calculate_position(int parameters_id,int chessboard_mem_id,int chessboard_se
 
     y_step = ceil(rows / perfect_matrix_rows);
 
-    printf("perfect_matrix_columns: %f, perfect_matrix_rows: %f\n", perfect_matrix_columns, perfect_matrix_rows);
-
-    printf("x_step: %d, y_step: %d\n", x_step, y_step);
-
     
 
 
@@ -375,38 +361,29 @@ int calculate_position(int parameters_id,int chessboard_mem_id,int chessboard_se
     init_x = ceil(x_step / 2);
     init_y = ceil(y_step / 2);
 
-    printf("PRIMA: init_x: %d, init_y: %d\n",init_x, init_y );
-    printf("PRIMA: x_step: %d, y_step: %d\n",x_step, y_step );
 
 
-
-    /* DA CAPIRE QUANDO PREFERIRE DECREMENTARE PRIMA init_y E DOPO y_step O VICEVERSA */
+    
     /* To avoid the creation of a new fake row between a step */
     /* -------------------------------------------------------------------------------- */
-    printf("columns: %d\n", columns);
 
     while((perfect_matrix_rows - 1) * y_step + init_y >= rows && init_y > 0){
-        printf("INIT_Y\n");
+        
         init_y -= 1;    
     }
     while((perfect_matrix_rows - 1) * y_step + init_y >= rows && y_step > 0){
-        printf("Y_STEP\n");
+        
         y_step -= 1;    
     }
     while((perfect_matrix_columns - 1) * x_step + init_x >= columns && init_x > 0){
-        printf("INIT_X\n");
+        
         init_x -= 1;
     }
     while((perfect_matrix_columns - 1) * x_step + init_x >= columns && x_step > 0){
-        printf("X_STEP\n");
-        printf("columns: %d\n", columns);
+    
         x_step -= 1;
     }
     /* -------------------------------------------------------------------------------- */
-
-    printf("DOPO: init_x: %d, init_y: %d\n",init_x, init_y );
-    printf("DOPO: x_step: %d, y_step: %d\n",x_step, y_step );
-
 
     for(i=0; i<perfect_matrix_rows; i++){
         for(j=0; j<perfect_matrix_columns; j++){
@@ -443,8 +420,6 @@ int set_parameters(){
     .
     .
     */
-    int parameters_id;
-    struct param * parameters;
     FILE *fd;
     int a;
     int b;
@@ -466,27 +441,7 @@ int set_parameters(){
 
     fscanf(fd, "%*s\t%*c\t%d\n%*s\t%*c\t%d\n%*s\t%*c\t%d\n%*s\t%*c\t%d\n%*s\t%*c\t%d\n%*s\t%*c\t%d\n%*s\t%*c\t%d\n%*s\t%*c\t%d\n%*s\t%*c\t%d\n%*s\t%*c\t%d", \
         &parameters->SO_NUM_G, &parameters->SO_NUM_P,&parameters->SO_MAX_TIME,&parameters->SO_BASE,&parameters->SO_ALTEZZA,&parameters->SO_FLAG_MIN,&parameters->SO_FLAG_MAX,&parameters->SO_ROUND_SCORE,&parameters->SO_N_MOVES,&parameters->SO_MIN_HOLD_NSEC);
-
-
     
-
-    
-
-    printf("%d\n",parameters->SO_NUM_G);
-    printf("%d\n",parameters->SO_NUM_P);
-    printf("%d\n",parameters->SO_MAX_TIME);
-    printf("%d\n",parameters->SO_BASE);
-    printf("%d\n",parameters->SO_ALTEZZA);
-    printf("%d\n",parameters->SO_FLAG_MIN);
-    printf("%d\n",parameters->SO_FLAG_MAX);
-    printf("%d\n",parameters->SO_ROUND_SCORE);
-    printf("%d\n",parameters->SO_N_MOVES);
-    printf("%d\n",parameters->SO_MIN_HOLD_NSEC);
-
-    printf("Numero giocatori: %d\n",parameters->SO_NUM_G);
-    
-
-    return parameters_id; /* Returns the id of parameters */
 }
 
 void print_chessboard(int * chessboard, int chessboard_sem_id,int parameters_id, int rows, int columns){
@@ -496,7 +451,6 @@ void print_chessboard(int * chessboard, int chessboard_sem_id,int parameters_id,
     struct param * parameters;
     parameters = shmat(parameters_id,NULL,0);
 
-    printf("Values:\n");
     for(i=0; i<rows; i++){
         
         for(j=0; j<columns; j++){
@@ -537,13 +491,13 @@ void print_chessboard(int * chessboard, int chessboard_sem_id,int parameters_id,
         }
         fprintf(stderr, "\n");
     }
-    printf("Semaphore values:\n");
+    /*printf("Semaphore values:\n");
     for(i=0; i<rows; i++){
         for(j=0; j<columns; j++){
             if(semctl(chessboard_sem_id, i * parameters->SO_BASE + j, GETVAL)){
                 printf("%d ", semctl(chessboard_sem_id, i * parameters->SO_BASE + j, GETVAL));
             }else{
-                printf("\033[0;31m"); /* Change color to RED*/
+                printf("\033[0;31m"); 
                 printf("%d ", semctl(chessboard_sem_id, i * parameters->SO_BASE + j, GETVAL));
                 printf("\033[0m");
             }
@@ -551,22 +505,34 @@ void print_chessboard(int * chessboard, int chessboard_sem_id,int parameters_id,
 
         }
         printf("\n");
-    }
+    }*/
 }
 
 void sigint_handler (int signal){
     int i;
-    printf("ROUND N: %d\n", round_number);
+    int j;
+    int total_points;
+    total_points = 0;
+    printf("\n\n-------------------------- Statistics --------------------------\n\n");
+    printf("\tRound Played:\t%d\n\n", round_number);
+    for(i = 0; i < parameters->SO_NUM_G; i++){
+        printf("\t------------------- Player %c --------------------\n\n", i+65);
+        printf("\tPercentage of Used Moves:\t%f\n", (float)players[i].used_moves / (float)parameters->SO_N_MOVES);
+        printf("\tPoints by Used Moves:\t%f\n", (float)players[i].points / (float)players[i].used_moves);
+        total_points += players[i].points;
+        printf("\t--------------------------------------------------\n\n");
+    }
+    printf("\tTotal points by Game Time:\t%d\n", total_points / play_time);
+    printf("\n\n----------------------------------------------------------------\n\n");
+
+
     for(i = 0; i < parameters->SO_NUM_G; i++){
         kill(players[i].pid, SIGINT);
     }
 
-    printf("ASPETTO FIGLI\n");
-    while(wait(NULL) != -1);
-    printf("HO FINITO DI ASPETTARE I FIGLI\n");
-
     
-
+    while(wait(NULL) != -1);
+    
     semctl(chessboard_sem_id, 0, IPC_RMID);
     semctl(master_sem_id, 0, IPC_RMID);
     semctl(turn_sem_id, 0, IPC_RMID);

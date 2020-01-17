@@ -163,8 +163,6 @@ int main(int argc, char *argv[]){
 
     sigaction(SIGINT, &sa, NULL);
 
-
-	printf("PID PLAYER %d\n", getpid());
 	
 				/* Checking passed arguments */
 	/* ---------------------------------------------------------------- */
@@ -277,7 +275,6 @@ int main(int argc, char *argv[]){
     		break;
     	case 0:
     		/* Giving the type */
-
     		sprintf (sprintf_type, "%d", i+1);
     		args[2] = sprintf_type;
     		sprintf (sprintf_player_msg_id_results, "%d", player_msg_id_results);
@@ -295,9 +292,7 @@ int main(int argc, char *argv[]){
 
 						/* Wait for 0 for pawns*/
 	/* -------------------------------------------------------------------------- */
-    printf("Player aspetta %d\n", getpid());
     sem_reserve_0(player_sem_id, 0);
-    printf("Player SINCRONIZZATO\n");
 
     sem_reserve_1(master_sem_id, MASTER);
 	/* -------------------------------------------------------------------------- */
@@ -510,7 +505,6 @@ int main(int argc, char *argv[]){
 		
 				/* Wait-for-0 the reception of the Strategy by the Pawns*/
 		/* -------------------------------------------------------------------------- */
-		printf("VALORE SEMAFORO: %d\n", semctl(player_sem_id, 0, GETVAL));
 		sem_reserve_0(player_sem_id, 0);
 		/* -------------------------------------------------------------------------- */
 
@@ -540,24 +534,17 @@ int main(int argc, char *argv[]){
 		sem_reserve_0(player_sem_id, 1);
 		/* -------------------------------------------------------------------------- */
 
-		printf("SUPERATO\n");
 
 						/* Read taken-or-not flag messages*/
 		/* -------------------------------------------------------------------------- */
-		i=0;
 		while((a = msgrcv(player_msg_id_results, &to_player,TO_PLAYER, 0, IPC_NOWAIT)) != -1){
-			printf("Player %c : Letto messaggio #%d  %d\n",player_type, i+1, player_msg_id_results);
 			total_points += to_player.points;
 			to_master.mtype = player_type;
 			to_master.points = to_player.points;
 			if(msgsnd(master_msg_id, &to_master, TO_PLAYER, 0) == -1){
 				fprintf(stderr, "Failed Message Send PUNTEGGIO#%d: %s\n", errno, strerror(errno));
-			}else{
-				printf("-------- MESSAGGIO A MASTER PUNTI------\n");
 			}
-			i++;
 		}
-		printf("PUNTI TOTALI %c : %d\n", player_type, total_points);
 		/* -------------------------------------------------------------------------- */
 
 
@@ -579,22 +566,16 @@ int main(int argc, char *argv[]){
 						pawns[j].starting_x = end_round_from_pawn.x;
 						pawns[j].starting_y = end_round_from_pawn.y;
 						total_remaining_moves += end_round_from_pawn.remaining_moves;
-						printf("x: %d\n", pawns[j].x);
-						printf("y: %d\n", pawns[j].y);
-						printf("rem_moves: %d\n", pawns[j].remaining_moves);
 					}
 				}
 			}else{
-				fprintf(stderr, "Errore Receive Message PLAYER\n");
+				fprintf(stderr, "Error Receive Message PLAYER\n");
 			}
 		}
 
 
 
 	    total_used_moves = (parameters->SO_N_MOVES * parameters->SO_NUM_P) - total_remaining_moves;
-
-	    printf("MOSSE TOTALI USATE %c : %d\n", player_type, total_used_moves);
-
 
 	    sem_reserve_1(master_sem_id, WAIT_END_ROUND);
 
@@ -607,12 +588,9 @@ int main(int argc, char *argv[]){
 
 	    if(msgsnd(master_msg_id, &moves_to_master, TO_PLAYER, 0) == -1){
 			fprintf(stderr, "Failed Message Send PUNTEGGIO#%d: %s\n", errno, strerror(errno));
-		}else{
-			printf("-------- MESSAGGIO A MASTER MOVES %c------\n", player_type);
 		}
 
 
-		printf("PRIMA DEL FOR ______________________________________________________________________\n");
 		for(i = 0; i < parameters->SO_NUM_P; i++){
 	    	free(pawns[i].target);
 	    	free(pawns[i].temp_target);
@@ -620,14 +598,12 @@ int main(int argc, char *argv[]){
 	    	pawns[i].temp_assigned = 0;
     	}
 
-    	printf("DOPO DEL FOR ______________________________________________________________________\n");
 
     	
 	}
     
     /*free(pawns);*/
 
-    printf("MORTE TUTTE LE PAWN %c\n", player_type);
     
     
 
@@ -704,14 +680,14 @@ int all_checked_flag(struct flag * flags, int flags_number){
 
 void sigint_handler(int signal){
 	int i;
-	printf("STO A MORE\n");
+	
     for(i = 0; i < pawns_number; i++){
         kill(pawns[i].pid, SIGINT);
     }
 
-    printf("ASPETTO LE PEDINE\n");
+    
     while(wait(NULL) != -1);
-    printf("FINITO ASPETTARE LE PEDINE\n");
+    
 
     semctl(player_sem_id, 0, IPC_RMID);
     msgctl(player_msg_id, IPC_RMID, NULL);

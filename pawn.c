@@ -66,16 +66,11 @@ int main(int argc, char *argv[]){
 
 	struct end_round_message end_round_to_players;
 
-	printf("PID PAWN %d\n", getpid());
 
 	parameters_id = atol(argv[1]);
 	type = atol(argv[2]);
 	player_letter = -atol(argv[3]);
 	player_msg_id_results = atol(argv[4]);
-
-	printf("player_msg_id_results: %d\n", player_msg_id_results);
-
-
 
 
 		  /* Getting chessboard, player semaphore and player queue*/
@@ -156,8 +151,7 @@ int main(int argc, char *argv[]){
 		.
 		*/
 
-		printf("VALORE SEMAFORO PEDINA: %d\n", semctl(player_sem_id, 0, GETVAL));
-		
+
 						/* Unblock players */
 	    /* ----------------------------------------------------------------- */
 		sem_reserve_1(player_sem_id, 0);
@@ -217,7 +211,7 @@ int main(int argc, char *argv[]){
 		}
 		
 		sem_reserve_1(player_sem_id, 1);
-		printf("UNLOCKATO %c\n", -player_letter);
+
 		sem_reserve_1(player_sem_id, 2);
 
 		end_round_to_players.mtype = type;
@@ -228,7 +222,7 @@ int main(int argc, char *argv[]){
 		if(msgsnd(player_msg_id, &end_round_to_players, END_ROUND_MESSAGE, 0) == -1){
 			fprintf(stderr, "Failed Message Send Presa#%d: %s\n", errno, strerror(errno));
 		}else{
-			printf("MESSAGGIO MANDATO PEDINA\n");
+
 		}
 
 		free(pawn.directions);
@@ -297,7 +291,6 @@ int move(int columns, int player_letter, PAWN * pawn, int * chessboard, int rows
 		}
 	}
 
-	printf("MI SONO BLOCCATA AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n");
 	pawn->directions[N] = 0;
 	pawn->directions[S] = 0;
 	pawn->directions[E] = 0;
@@ -324,7 +317,6 @@ int move_specific(int way,int player_letter, PAWN * pawn, int * chessboard, int 
 					to_player.points = chessboard[pawn->y * columns + pawn->x];
 					to_player.mtype = type;
 					flag = 1;
-					printf("INVIO MESSAGGIO PRESA BANDIERA %c PEDINA: %d\n", -player_letter, type);
 					*taken = 1;
 					if(msgsnd(player_msg_id_results, &to_player, TO_PLAYER, 0) == -1){
 					   	fprintf(stderr, "Failed Message Send Presa#%d: %s\n", errno, strerror(errno));
@@ -354,7 +346,6 @@ int move_specific(int way,int player_letter, PAWN * pawn, int * chessboard, int 
 					to_player.points = chessboard[pawn->y * columns + pawn->x];
 					to_player.mtype = type;
 					flag = 1;
-					printf("INVIO MESSAGGIO PRESA BANDIERA %c PEDINA: %d\n", -player_letter, type);
 					*taken = 1;
 					if(msgsnd(player_msg_id_results, &to_player, TO_PLAYER, 0) == -1){
 					   	fprintf(stderr, "Failed Message Send Presa#%d: %s\n", errno, strerror(errno));
@@ -386,7 +377,6 @@ int move_specific(int way,int player_letter, PAWN * pawn, int * chessboard, int 
 					to_player.points = chessboard[pawn->y * columns + pawn->x];
 					to_player.mtype = type;
 					flag = 1;
-					printf("INVIO MESSAGGIO PRESA BANDIERA %c PEDINA: %d\n", -player_letter, type);
 					*taken = 1;
 					if(msgsnd(player_msg_id_results, &to_player, TO_PLAYER, 0) == -1){
 					   	fprintf(stderr, "Failed Message Send Presa#%d: %s\n", errno, strerror(errno));
@@ -417,7 +407,6 @@ int move_specific(int way,int player_letter, PAWN * pawn, int * chessboard, int 
 					to_player.points = chessboard[pawn->y * columns + pawn->x];
 					to_player.mtype = type;
 					flag = 1;
-					printf("INVIO MESSAGGIO PRESA BANDIERA %c PEDINA: %d\n", -player_letter, type);
 					*taken = 1;
 					if(msgsnd(player_msg_id_results, &to_player, TO_PLAYER, 0) == -1){
 					   	fprintf(stderr, "Failed Message Send Presa#%d: %s\n", errno, strerror(errno));
@@ -441,7 +430,7 @@ int move_specific(int way,int player_letter, PAWN * pawn, int * chessboard, int 
 		break;
 
 		default:
-			printf("FACCIO MERDA\n");
+			printf("Error on Moves-Switch\n");
 		break;
 	}
 }
