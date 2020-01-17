@@ -14,6 +14,12 @@
 #include <math.h>
 #include "semaphore.h"
 
+struct param * parameters;
+int pawns_number;
+int player_sem_id;
+int player_msg_id;
+int player_msg_id_results;
+
 struct flag{
 	int number;
 	int position;
@@ -25,6 +31,7 @@ struct flag{
 
 struct pawn{
     long type;
+    int pid;
     int x;
     int y;
     int starting_x;
@@ -36,24 +43,29 @@ struct pawn{
     int temp_assigned;
 };
 
+struct pawn * pawns;
+
 int set_pawns(int letter, int parameters_id, int player_msg_id, int chessboard_mem_id, int chessboard_sem_id, int rows, int columns, struct pawn * pawns);
 struct position * calculate_position(int parameters_id);
 int all_checked_flag(struct flag * flags, int flags_number);
+void sigint_handler (int signal);
 
 int main(int argc, char *argv[]){
+
+	struct sigaction sa;
 
 	int i;
 	int k;
 	
 	int parameters_id;
-	struct param * parameters;
+	
 	
 	pid_t select;
 
 	int master_sem_id;
-	int player_sem_id;
+	
 
-	int player_msg_id;
+	
 	char sprintf_type[200];
 	int player_type;
 
@@ -86,7 +98,7 @@ int main(int argc, char *argv[]){
 	struct position * positions;
 	int positions_id;
 
-	struct pawn * pawns;
+	
 
 	struct flag * flags;
 	struct flag * copy_flags;
@@ -128,7 +140,7 @@ int main(int argc, char *argv[]){
 
 	struct player_strategy strategy;
 
-	int player_msg_id_results;
+	
 
 	int to_receive_targets;
 	struct pawn_flag to_player;
@@ -145,6 +157,14 @@ int main(int argc, char *argv[]){
 	int total_remaining_moves;
 	struct pawn_flag moves_to_master;
 
+	bzero(&sa, sizeof(sa));
+
+    sa.sa_handler = sigint_handler;
+
+    sigaction(SIGINT, &sa, NULL);
+
+
+	printf("PID PLAYER %d\n", getpid());
 	
 				/* Checking passed arguments */
 	/* ---------------------------------------------------------------- */
@@ -167,7 +187,7 @@ int main(int argc, char *argv[]){
 	master_sem_id = semget(MAIN_SEM, 5, 0666);
     
     total_points = 0;
-
+    pawns_number = parameters->SO_NUM_P;
 	
     sprintf (sprintf_parameters_id, "%d", parameters_id);
     
@@ -203,7 +223,7 @@ int main(int argc, char *argv[]){
 
 			/* Access and set pawn semaphore to wait pawns*/
 	/* -----------------------------------------------------------------*/
-	if((player_sem_id = semget(getpid(), 3, 0666 | IPC_CREAT)) == -1){
+	if((player_sem_id = semget(getpid(), 4, 0666 | IPC_CREAT)) == -1){
 		if(errno == ENOENT)
 			fprintf(stderr, "Failed semaphore for pawns\n");
 		exit(EXIT_FAILURE);
@@ -250,7 +270,7 @@ int main(int argc, char *argv[]){
     						/* Fork the pawns*/
     /* -------------------------------------------------------------------------- */
 	for (i = 0; i < parameters->SO_NUM_P; i++){
-		switch(fork()){
+		switch(pawns[i].pid = fork()){
 		case -1:
     		fprintf(stderr, "Failed to Fork Pawns PID#%d%s\n", getpid());
     		exit(EXIT_FAILURE);
@@ -278,310 +298,340 @@ int main(int argc, char *argv[]){
     printf("Player aspetta %d\n", getpid());
     sem_reserve_0(player_sem_id, 0);
     printf("Player SINCRONIZZATO\n");
-	/* -------------------------------------------------------------------------- */
-    
 
-    					/* Unblock master and wait on synchro */
-	/* -------------------------------------------------------------------------- */
     sem_reserve_1(master_sem_id, MASTER);
-    sem_reserve_1(master_sem_id, SYNCHRO);    
-
 	/* -------------------------------------------------------------------------- */
-
-				/* Unblock pawns by send strategy and wait for them */
-	/* -------------------------------------------------------------------------- */
-    target_count = 0;
-    to_receive_targets = 0;
     
+    while(1){
+	    					/* Unblock master and wait on synchro */
+		/* -------------------------------------------------------------------------- */
+	    
+	    sem_reserve_1(master_sem_id, SYNCHRO);    
 
-    flags = malloc(sizeof(struct flag));
-    flags_number = 0;
-    for(i = 0; i < rows; i++){
-    	for(j = 0; j < columns; j++){
-    		if(chessboard[i * columns + j] > 0){
-    			flags[flags_number].number = flags_number;
-    			flags[flags_number].position = i * columns + j;
-    			flags[flags_number].x = flags[flags_number].position % columns;
-    			flags[flags_number].y = (flags[flags_number].position - flags[flags_number].x) / columns;
-    			flags_number++;
+		/* -------------------------------------------------------------------------- */
 
-    			flags = realloc(flags, sizeof(struct flag) * (flags_number + 1));
-    			
-    		}
-    	}
-    }
+					/* Unblock pawns by send strategy and wait for them */
+		/* -------------------------------------------------------------------------- */
+	    target_count = 0;
+	    to_receive_targets = 0;
+	    
 
-    for(i = 0; i < flags_number; i++ ){
-    	flags[i].checked = 0;
-    }
+	    flags = malloc(sizeof(struct flag));
+	    flags_number = 0;
+	    for(i = 0; i < rows; i++){
+	    	for(j = 0; j < columns; j++){
+	    		if(chessboard[i * columns + j] > 0){
+	    			flags[flags_number].number = flags_number;
+	    			flags[flags_number].position = i * columns + j;
+	    			flags[flags_number].x = flags[flags_number].position % columns;
+	    			flags[flags_number].y = (flags[flags_number].position - flags[flags_number].x) / columns;
+	    			flags_number++;
 
-    
+	    			flags = realloc(flags, sizeof(struct flag) * (flags_number + 1));
+	    			
+	    		}
+	    	}
+	    }
 
-    for(i = 0; i < parameters->SO_NUM_P; i++){
-		pawns[i].target = (struct flag *) malloc(sizeof(struct flag) * flags_number);
-		memset(pawns[i].target, -1, sizeof(struct flag) * flags_number);
-		pawns[i].temp_target = (struct flag *) malloc(sizeof(struct flag) * flags_number);
-		memset(pawns[i].temp_target, -1, sizeof(struct flag) * flags_number);
-    }
+	    for(i = 0; i < flags_number; i++ ){
+	    	flags[i].checked = 0;
+	    }
+
+	    
+
+	    for(i = 0; i < parameters->SO_NUM_P; i++){
+			pawns[i].target = (struct flag *) malloc(sizeof(struct flag) * flags_number);
+			memset(pawns[i].target, -1, sizeof(struct flag) * flags_number);
+			pawns[i].temp_target = (struct flag *) malloc(sizeof(struct flag) * flags_number);
+			memset(pawns[i].temp_target, -1, sizeof(struct flag) * flags_number);
+	    }
 
 
-   
+	   
 
-    /* Setting the wait-for-0 semaphore */
-    sem_set_val(player_sem_id, 0, parameters->SO_NUM_P);
-    
+	    /* Setting the wait-for-0 semaphore */
+	    sem_set_val(player_sem_id, 0, parameters->SO_NUM_P);
+	    
 
-    /*----------------------------ALGORITMO--------------------------------------*/
-	    while(!all_checked_flag(flags,flags_number)){	
-	    	/* PRIMA PARTE */
-	    	strategy.selected = 0;
-		    for(i = 0; i < flags_number; i++){
-			    if(flags[i].checked != 1){
-			    	target_index = -1;
-			    	min_distance = INT_MAX;
-				    temp_target_count = 0;
-			    	
-				    flag_column = flags[i].x;
-				    flag_row = flags[i].y;
-			    	
-			    	test_pawn = 0;
-					for(j = 0; j < parameters->SO_NUM_P; j++){
-
-					    pawn_column = pawns[j].x;
-					    pawn_row = pawns[j].y;
-
-					    distance = abs(pawn_column - flag_column) + abs(pawn_row - flag_row);
-
-					    if(pawns[j].remaining_moves >= distance && distance <= min_distance){
-					    	min_distance = distance;
-					    	target_index = j;	
-					    }
-				   	}
+	    /*----------------------------ALGORITMO--------------------------------------*/
+		    while(!all_checked_flag(flags,flags_number)){	
+		    	/* PRIMA PARTE */
+		    	strategy.selected = 0;
+			    for(i = 0; i < flags_number; i++){
+				    if(flags[i].checked != 1){
+				    	target_index = -1;
+				    	min_distance = INT_MAX;
+					    temp_target_count = 0;
 				    	
-				    if(min_distance != INT_MAX){
-				    	test_pawn = 1;
-				    	temp_target_count = pawns[target_index].temp_assigned;
-					    pawns[target_index].temp_target[temp_target_count] = flags[i];
-					    pawns[target_index].temp_assigned += 1;
-				    }
+					    flag_column = flags[i].x;
+					    flag_row = flags[i].y;
+				    	
+				    	test_pawn = 0;
+						for(j = 0; j < parameters->SO_NUM_P; j++){
+
+						    pawn_column = pawns[j].x;
+						    pawn_row = pawns[j].y;
+
+						    distance = abs(pawn_column - flag_column) + abs(pawn_row - flag_row);
+
+						    if(pawns[j].remaining_moves >= distance && distance <= min_distance){
+						    	min_distance = distance;
+						    	target_index = j;	
+						    }
+					   	}
+					    	
+					    if(min_distance != INT_MAX){
+					    	test_pawn = 1;
+					    	temp_target_count = pawns[target_index].temp_assigned;
+						    pawns[target_index].temp_target[temp_target_count] = flags[i];
+						    pawns[target_index].temp_assigned += 1;
+					    }
 
 
-				    if(target_index == -1){
-				    	flags[i].checked = 1;
+					    if(target_index == -1){
+					    	flags[i].checked = 1;
+						}
 					}
-				}
-		    }
+			    }
 
-		    /* SECONDA PARTE */
-		    for(i = 0; i < parameters->SO_NUM_P; i++){
-		    	target_index = 0;
+			    /* SECONDA PARTE */
+			    for(i = 0; i < parameters->SO_NUM_P; i++){
+			    	target_index = 0;
 
-		    	if(pawns[i].temp_assigned > 0){
+			    	if(pawns[i].temp_assigned > 0){
 
-		    		flag_column = pawns[i].temp_target[0].x;
-		    		
-			    	flag_row = pawns[i].temp_target[0].y;
-			    	
-			    	def_distance = abs(pawns[i].x - flag_column) + abs(pawns[i].y - flag_row);
-
-			    	if(pawns[i].temp_assigned > 1){
+			    		flag_column = pawns[i].temp_target[0].x;
 			    		
-			    		for(j = 1; j < pawns[i].temp_assigned; j++){	    			
-			    			flag_column = pawns[i].temp_target[j].x;
-			    			flag_row = pawns[i].temp_target[j].y;
-			    			def_distance_2 = abs(pawns[i].x - flag_column) + abs(pawns[i].y - flag_row);
+				    	flag_row = pawns[i].temp_target[0].y;
+				    	
+				    	def_distance = abs(pawns[i].x - flag_column) + abs(pawns[i].y - flag_row);
 
-			    			if(def_distance_2 < def_distance){
-			    				def_distance = def_distance_2;
-			    				target_index = j;	
-			    			}
+				    	if(pawns[i].temp_assigned > 1){
+				    		
+				    		for(j = 1; j < pawns[i].temp_assigned; j++){	    			
+				    			flag_column = pawns[i].temp_target[j].x;
+				    			flag_row = pawns[i].temp_target[j].y;
+				    			def_distance_2 = abs(pawns[i].x - flag_column) + abs(pawns[i].y - flag_row);
 
-			    		}
+				    			if(def_distance_2 < def_distance){
+				    				def_distance = def_distance_2;
+				    				target_index = j;	
+				    			}
+
+				    		}
+				    	}
+
+				    	pawn_index = pawns[i].assigned;
+				    	
+				    	pawns[i].target[pawn_index] = pawns[i].temp_target[target_index];
+				    	number = pawns[i].temp_target[target_index].number;
+				    	flags[number].checked = 1;
+				    			    	
+				    	pawns[i].remaining_moves -= def_distance;
+
+				    	strategy.mtype = pawns[i].type;
+				    	strategy.selected = 1;
+				    	strategy.flag_x = pawns[i].target[pawn_index].x;
+				    	strategy.flag_y = pawns[i].target[pawn_index].y;
+				    	strategy.flag_position = strategy.flag_y * columns + strategy.flag_x;
+
+				    	strategy.directions[N] = 0;
+				    	strategy.directions[S] = 0;
+				    	strategy.directions[E] = 0;
+				    	strategy.directions[W] = 0;
+
+
+				    	if(pawns[i].temp_target[target_index].x > pawns[i].x){
+				    		strategy.directions[E] = pawns[i].temp_target[target_index].x - pawns[i].x;
+				    	}else if(pawns[i].temp_target[target_index].x < pawns[i].x){
+				    		strategy.directions[W] = pawns[i].x - pawns[i].temp_target[target_index].x;
+				    	}
+
+				    	if(pawns[i].temp_target[target_index].y < pawns[i].y){
+				    		strategy.directions[N] = pawns[i].y - pawns[i].temp_target[target_index].y;
+				    	}else if(pawns[i].temp_target[target_index].y > pawns[i].y){
+				    		strategy.directions[S] = pawns[i].temp_target[target_index].y - pawns[i].y;
+				    	}
+
+
+				    	pawns[i].x = pawns[i].target[pawn_index].x;
+				    	pawns[i].y = pawns[i].target[pawn_index].y;
+				    	
+				    	pawns[i].assigned += 1;
+
+				    	to_receive_targets++;
+
+						if((success = msgsnd(player_msg_id, &strategy, LEN_STRATEGY, 0)) == -1){
+						   	fprintf(stderr, "Failed Message Send#%d: %s\n", errno, strerror(errno));
+						}
+
+				    	for(j = 0; j < pawns[i].temp_assigned; j++){
+				    		pawns[i].temp_assigned = 0;
+				    	}
 			    	}
+			    }
+			}
 
-			    	pawn_index = pawns[i].assigned;
-			    	
-			    	pawns[i].target[pawn_index] = pawns[i].temp_target[target_index];
-			    	number = pawns[i].temp_target[target_index].number;
-			    	flags[number].checked = 1;
-			    			    	
-			    	pawns[i].remaining_moves -= def_distance;
+			for(i = 0; i < parameters->SO_NUM_P; i++){
+				if(pawns[i].assigned == 0){
+					strategy.mtype = pawns[i].type;
+				    strategy.selected = 0;
+				    strategy.directions[N] = 0;
+				    strategy.directions[S] = 0;
+				    strategy.directions[E] = 0;
+				    strategy.directions[W] = 0;
+				    strategy.flag_x = -1;
+				    strategy.flag_y = -1;
+				    strategy.flag_position = -1;
 
-			    	strategy.mtype = pawns[i].type;
-			    	strategy.selected = 1;
-			    	strategy.flag_x = pawns[i].target[pawn_index].x;
-			    	strategy.flag_y = pawns[i].target[pawn_index].y;
-			    	strategy.flag_position = strategy.flag_y * columns + strategy.flag_x;
-
-			    	strategy.directions[N] = 0;
-			    	strategy.directions[S] = 0;
-			    	strategy.directions[E] = 0;
-			    	strategy.directions[W] = 0;
-
-
-			    	if(pawns[i].temp_target[target_index].x > pawns[i].x){
-			    		strategy.directions[E] = pawns[i].temp_target[target_index].x - pawns[i].x;
-			    	}else if(pawns[i].temp_target[target_index].x < pawns[i].x){
-			    		strategy.directions[W] = pawns[i].x - pawns[i].temp_target[target_index].x;
-			    	}
-
-			    	if(pawns[i].temp_target[target_index].y < pawns[i].y){
-			    		strategy.directions[N] = pawns[i].y - pawns[i].temp_target[target_index].y;
-			    	}else if(pawns[i].temp_target[target_index].y > pawns[i].y){
-			    		strategy.directions[S] = pawns[i].temp_target[target_index].y - pawns[i].y;
-			    	}
-
-
-			    	pawns[i].x = pawns[i].target[pawn_index].x;
-			    	pawns[i].y = pawns[i].target[pawn_index].y;
-			    	
-			    	pawns[i].assigned += 1;
-
-			    	to_receive_targets++;
-
-					if((success = msgsnd(player_msg_id, &strategy, LEN_STRATEGY, 0)) == -1){
-					   	fprintf(stderr, "Failed Message Send#%d: %s\n", errno, strerror(errno));
+				    if((success = msgsnd(player_msg_id, &strategy, LEN_STRATEGY, 0)) == -1){
+						fprintf(stderr, "Failed Message Send#%d: %s\n", errno, strerror(errno));
 					}
-
-			    	for(j = 0; j < pawns[i].temp_assigned; j++){
-			    		pawns[i].temp_assigned = 0;
-			    	}
-		    	}
-		    }
-		}
-
-		for(i = 0; i < parameters->SO_NUM_P; i++){
-			if(pawns[i].assigned == 0){
-				strategy.mtype = pawns[i].type;
-			    strategy.selected = 0;
-			    strategy.directions[N] = 0;
-			    strategy.directions[S] = 0;
-			    strategy.directions[E] = 0;
-			    strategy.directions[W] = 0;
-			    strategy.flag_x = -1;
-			    strategy.flag_y = -1;
-			    strategy.flag_position = -1;
-
-			    if((success = msgsnd(player_msg_id, &strategy, LEN_STRATEGY, 0)) == -1){
-					fprintf(stderr, "Failed Message Send#%d: %s\n", errno, strerror(errno));
 				}
 			}
-		}
-    /*-----------------------------------------------------------------------------------*/
-	
-	for(i = 0; i < parameters->SO_NUM_P; i++){
-    	if(pawns[i].assigned > 0){
-	    	printf("\nPlayer: %c-------------------------- PEDINA %d (%d,%d) ------------------------\n",player_type, pawns[i].type,pawns[i].starting_x,pawns[i].starting_y );	
-	    	for(j = 0; j < flags_number; j++){
-	    		if(pawns[i].target[j].x > -1)
-	    			printf("Player: %c %d: Target #%d => (%d,%d) Moves: %d\n",player_type, i, j,pawns[i].target[j].x,pawns[i].target[j].y ,pawns[i].remaining_moves);
-	    		else
-	    			break;
+
+			free(flags);
+	    /*-----------------------------------------------------------------------------------*/
+		
+		for(i = 0; i < parameters->SO_NUM_P; i++){
+	    	if(pawns[i].assigned > 0){
+		    	printf("\nPlayer: %c-------------------------- PEDINA %d (%d,%d) ------------------------\n",player_type, pawns[i].type,pawns[i].starting_x,pawns[i].starting_y );	
+		    	for(j = 0; j < flags_number; j++){
+		    		if(pawns[i].target[j].x > -1)
+		    			printf("Player: %c %d: Target #%d => (%d,%d) Moves: %d\n",player_type, i, j,pawns[i].target[j].x,pawns[i].target[j].y ,pawns[i].remaining_moves);
+		    		else
+		    			break;
+		    	}
 	    	}
-    	}
-    }
+	    }
 
-	
-	
-	
-			/* Wait-for-0 the reception of the Strategy by the Pawns*/
-	/* -------------------------------------------------------------------------- */
-	sem_reserve_0(player_sem_id, 0);
-	/* -------------------------------------------------------------------------- */
+		sem_set_val(player_sem_id, 3, parameters->SO_NUM_P);
+		
+		
+				/* Wait-for-0 the reception of the Strategy by the Pawns*/
+		/* -------------------------------------------------------------------------- */
+		printf("VALORE SEMAFORO: %d\n", semctl(player_sem_id, 0, GETVAL));
+		sem_reserve_0(player_sem_id, 0);
+		/* -------------------------------------------------------------------------- */
 
-				/* Set entry PLAYER to wait the flag messages */
-	/* -------------------------------------------------------------------------- */
-	sem_set_val(player_sem_id, 1, parameters->SO_NUM_P);
-	/* -------------------------------------------------------------------------- */
+					/* Set entry 1 to wait the flag messages */
+		/* -------------------------------------------------------------------------- */
+		sem_set_val(player_sem_id, 1, parameters->SO_NUM_P);
+		/* -------------------------------------------------------------------------- */
 
-					/* Unblock master and wait for him */
-	/* -------------------------------------------------------------------------- */
-	sem_reserve_1(master_sem_id, A);
-	sem_reserve_1(master_sem_id, MASTER);
-	/* -------------------------------------------------------------------------- */
-
-
-					/* Unblock pawns and START GAME */
-	/* -------------------------------------------------------------------------- */
-	sem_set_val(master_sem_id, START, parameters->SO_NUM_P * parameters->SO_NUM_G);
-	/* -------------------------------------------------------------------------- */
+						/* Unblock master and wait for him */
+		/* -------------------------------------------------------------------------- */
+		sem_reserve_1(master_sem_id, A);
+		sem_reserve_1(master_sem_id, MASTER);
+		/* -------------------------------------------------------------------------- */
 
 
-					/* Wait for 0 on WAIT_PLAYER */
-	/* -------------------------------------------------------------------------- */
-	sem_reserve_0(player_sem_id, 1);
-	/* -------------------------------------------------------------------------- */
+						/* Unblock pawns and START GAME */
+		/* -------------------------------------------------------------------------- */
+		sem_set_val(master_sem_id, START, parameters->SO_NUM_P * parameters->SO_NUM_G);
+		/* -------------------------------------------------------------------------- */
 
-	printf("SUPERATO\n");
-					/* Read taken-or-not flag messages*/
-	/* -------------------------------------------------------------------------- */
-	i=0;
-	while((a = msgrcv(player_msg_id_results, &to_player,TO_PLAYER, 0, IPC_NOWAIT)) != -1){
-		printf("Player %c : Letto messaggio #%d  %d\n",player_type, i+1, player_msg_id_results);
-		total_points += to_player.points;
-		to_master.mtype = player_type;
-		to_master.points = to_player.points;
-		if(msgsnd(master_msg_id, &to_master, TO_PLAYER, 0) == -1){
+
+/* --------------------------------------- START TIME -------------------------------------------------------*/
+
+
+						/* Wait for 0 on 1 */
+		/* -------------------------------------------------------------------------- */
+		sem_reserve_0(player_sem_id, 1);
+		/* -------------------------------------------------------------------------- */
+
+		printf("SUPERATO\n");
+
+						/* Read taken-or-not flag messages*/
+		/* -------------------------------------------------------------------------- */
+		i=0;
+		while((a = msgrcv(player_msg_id_results, &to_player,TO_PLAYER, 0, IPC_NOWAIT)) != -1){
+			printf("Player %c : Letto messaggio #%d  %d\n",player_type, i+1, player_msg_id_results);
+			total_points += to_player.points;
+			to_master.mtype = player_type;
+			to_master.points = to_player.points;
+			if(msgsnd(master_msg_id, &to_master, TO_PLAYER, 0) == -1){
+				fprintf(stderr, "Failed Message Send PUNTEGGIO#%d: %s\n", errno, strerror(errno));
+			}else{
+				printf("-------- MESSAGGIO A MASTER PUNTI------\n");
+			}
+			i++;
+		}
+		printf("PUNTI TOTALI %c : %d\n", player_type, total_points);
+		/* -------------------------------------------------------------------------- */
+
+
+/* --------------------------------------- END TIME -------------------------------------------------------*/
+
+
+		sem_set_val(player_sem_id,2,parameters->SO_NUM_P);
+
+
+		total_remaining_moves = 0;
+
+		for(i = 0; i < parameters->SO_NUM_P; i++){
+			if((a = msgrcv(player_msg_id, &end_round_from_pawn,END_ROUND_MESSAGE, 0, 0)) != -1){
+				for(j = 0; j < parameters->SO_NUM_P; j++){
+					if(pawns[j].type == end_round_from_pawn.mtype){
+						pawns[j].x = end_round_from_pawn.x;
+						pawns[j].y = end_round_from_pawn.y;
+						pawns[j].remaining_moves = end_round_from_pawn.remaining_moves;
+						pawns[j].starting_x = end_round_from_pawn.x;
+						pawns[j].starting_y = end_round_from_pawn.y;
+						total_remaining_moves += end_round_from_pawn.remaining_moves;
+						printf("x: %d\n", pawns[j].x);
+						printf("y: %d\n", pawns[j].y);
+						printf("rem_moves: %d\n", pawns[j].remaining_moves);
+					}
+				}
+			}else{
+				fprintf(stderr, "Errore Receive Message PLAYER\n");
+			}
+		}
+
+
+
+	    total_used_moves = (parameters->SO_N_MOVES * parameters->SO_NUM_P) - total_remaining_moves;
+
+	    printf("MOSSE TOTALI USATE %c : %d\n", player_type, total_used_moves);
+
+
+	    sem_reserve_1(master_sem_id, WAIT_END_ROUND);
+
+
+	    
+
+	    moves_to_master.mtype = player_type;
+	    moves_to_master.points = total_used_moves;
+
+
+	    if(msgsnd(master_msg_id, &moves_to_master, TO_PLAYER, 0) == -1){
 			fprintf(stderr, "Failed Message Send PUNTEGGIO#%d: %s\n", errno, strerror(errno));
 		}else{
-			printf("-------- MESSAGGIO A MASTER ------\n");
+			printf("-------- MESSAGGIO A MASTER MOVES %c------\n", player_type);
 		}
-		i++;
+
+
+		printf("PRIMA DEL FOR ______________________________________________________________________\n");
+		for(i = 0; i < parameters->SO_NUM_P; i++){
+	    	free(pawns[i].target);
+	    	free(pawns[i].temp_target);
+	    	pawns[i].assigned = 0;
+	    	pawns[i].temp_assigned = 0;
+    	}
+
+    	printf("DOPO DEL FOR ______________________________________________________________________\n");
+
+    	
 	}
-	printf("PUNTI TOTALI %c : %d\n", player_type, total_points);
-	/* -------------------------------------------------------------------------- */
-
-
-	sem_set_val(player_sem_id,2,parameters->SO_NUM_P);
-
-
-	total_remaining_moves = 0;
-
-	for(i = 0; i < parameters->SO_NUM_P; i++){
-		if((a = msgrcv(player_msg_id, &end_round_from_pawn,END_ROUND_MESSAGE, 0, 0)) != -1){
-			printf("x: %d\n", end_round_from_pawn.x);
-			printf("y: %d\n", end_round_from_pawn.y);
-			printf("rem_moves: %d\n", end_round_from_pawn.remaining_moves);
-			total_remaining_moves += end_round_from_pawn.remaining_moves;
-		}else{
-			fprintf(stderr, "Errore Receive Message PLAYER\n");
-		}
-	}
-
-    total_used_moves = (parameters->SO_N_MOVES * parameters->SO_NUM_P) - total_remaining_moves;
-
-    printf("MOSSE TOTALI RIMASTE %c : %d\n", player_type, total_used_moves);
-
-    sem_reserve_1(master_sem_id, WAIT_END_ROUND);
-
-    moves_to_master.mtype = player_type;
-    moves_to_master.points = total_used_moves;
-
-
-    if(msgsnd(master_msg_id, &moves_to_master, TO_PLAYER, 0) == -1){
-		fprintf(stderr, "Failed Message Send PUNTEGGIO#%d: %s\n", errno, strerror(errno));
-	}else{
-		printf("-------- MESSAGGIO A MASTER ------\n");
-	}
-
-    while((select = wait(NULL)) != -1);
-
-    for(i = 0; i < parameters->SO_NUM_P; i++){
-    	free(pawns[i].target);
-    	free(pawns[i].temp_target);
-    }
-
-
-    free(flags);
-    free(pawns);
+    
+    /*free(pawns);*/
 
     printf("MORTE TUTTE LE PAWN %c\n", player_type);
     
     
 
-    semctl(player_sem_id, 0, IPC_RMID);
-    msgctl(player_msg_id, IPC_RMID, NULL);
-    msgctl(player_msg_id_results, IPC_RMID, NULL);    
+        
     
 	exit(EXIT_SUCCESS);
 }
@@ -651,3 +701,22 @@ int all_checked_flag(struct flag * flags, int flags_number){
 
 	return 1;
 }
+
+void sigint_handler(int signal){
+	int i;
+	printf("STO A MORE\n");
+    for(i = 0; i < pawns_number; i++){
+        kill(pawns[i].pid, SIGINT);
+    }
+
+    printf("ASPETTO LE PEDINE\n");
+    while(wait(NULL) != -1);
+    printf("FINITO ASPETTARE LE PEDINE\n");
+
+    semctl(player_sem_id, 0, IPC_RMID);
+    msgctl(player_msg_id, IPC_RMID, NULL);
+    msgctl(player_msg_id_results, IPC_RMID, NULL);
+
+    exit(EXIT_SUCCESS);
+}
+

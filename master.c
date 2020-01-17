@@ -14,10 +14,24 @@
 #include <math.h>
 #include "semaphore.h"
 
+int round_number;
+struct param * parameters;
+int chessboard_mem_id;
+int chessboard_sem_id;
+int master_sem_id;
+int turn_sem_id;
+int parameters_id;
+int positions_id;
+int master_msg_id;
+int * chessboard;
+
 typedef struct{
+    int pid;
     int points;
     int used_moves;
 } PLAYER;
+
+PLAYER * players;
 
 int set_parameters();
 void print_chessboard(int * chessboard, int chessboard_sem_id,int parameters_id, int rows, int columns);
@@ -36,8 +50,8 @@ int main(int argc, char const *argv[]){
     /*char buffer[2];*/
     
     int num_bytes;
-    int parameters_id;
-    struct param * parameters;
+    
+    
     char sprintf_parameters_id[200];
     char sprintf_number_player[200];
 
@@ -46,18 +60,16 @@ int main(int argc, char const *argv[]){
 	int rows;
   	int columns;
 
-	int * chessboard;
+	
 
 
 	int i,j;
 
 	char y;
 
-    int chessboard_mem_id;
-    int chessboard_sem_id;
+    
 
-    int master_sem_id;
-    int turn_sem_id;
+    
     char sprintf_sem_entry[200];
 
     char * args[5]; 
@@ -70,10 +82,10 @@ int main(int argc, char const *argv[]){
     int sum;
 
     int switch_color_pawn;
-    int positions_id;
+    
 
-    int master_msg_id;
-    PLAYER * players;
+    
+    
     struct message_to_master player_points;
     struct pawn_flag receive_points;
 
@@ -81,7 +93,9 @@ int main(int argc, char const *argv[]){
 
     sa.sa_handler = sigint_handler;
 
-    sigaction(SIGINT, &sa, NULL);
+    sigaction(SIGALRM, &sa, NULL);
+
+    round_number = 0;
 	
 
     
@@ -153,7 +167,7 @@ int main(int argc, char const *argv[]){
     /*Creation of the Players*/
     for (index_child = 0; index_child < parameters->SO_NUM_G; index_child++){
         printf("%d\n", parameters->SO_NUM_G);
-    	switch(fork()){
+    	switch(players[index_child].pid = fork()){
     		case -1:
     			fprintf(stderr, "Failed to Fork Players%s\n");
     			exit(EXIT_FAILURE);
@@ -174,9 +188,6 @@ int main(int argc, char const *argv[]){
     }
 
 
-                        
-    
-    
     /* Used for the wait-for-zero for the master by players*/
     sem_set_val(master_sem_id, SYNCHRO, 0);
     sem_set_val(master_sem_id, MASTER, parameters->SO_NUM_G);
@@ -198,104 +209,92 @@ int main(int argc, char const *argv[]){
     fprintf(stdout,"Master SINCRONIZZATO\n");
     /* ----------------------------------------------------------------------------*/
 
-                /* Calculation of flags and their scores*/
-    /* -------------------------------------------------------------------- */
-    total_score = parameters->SO_ROUND_SCORE;
-
-    srand(getpid());
-
-    flag_number = rand() % (parameters->SO_FLAG_MAX - parameters->SO_FLAG_MIN + 1) + parameters->SO_FLAG_MIN;
-
-    sum  = 0;
-    for(i = flag_number; i > 1 ; i--){
-        media = total_score/i;
-        num = (rand() % media)  + 1;
-        pos = rand() % (rows * columns);
-        if(chessboard[pos] == 0){
-            sum += num;
-            chessboard[pos] = num;
-            total_score -= num;
-            printf("%d \n", num);
-        }else{
-            i++;
-        }
-    }
     while(1){
-        pos = rand() % (rows * columns);
-        if(chessboard[pos] == 0){
-            sum += total_score;
-            chessboard[pos] = total_score;
-            printf("%d \n", total_score);
-            break;
+        printf("METTO LE FLAGS\n");
+                    /* Calculation of flags and their scores*/
+        /* -------------------------------------------------------------------- */
+        total_score = parameters->SO_ROUND_SCORE;
+
+        srand(getpid());
+
+        flag_number = rand() % (parameters->SO_FLAG_MAX - parameters->SO_FLAG_MIN + 1) + parameters->SO_FLAG_MIN;
+
+        sum  = 0;
+        for(i = flag_number; i > 1 ; i--){
+            media = total_score/i;
+            num = (rand() % media)  + 1;
+            pos = rand() % (rows * columns);
+            if(chessboard[pos] == 0){
+                sum += num;
+                chessboard[pos] = num;
+                total_score -= num;
+                printf("%d \n", num);
+            }else{
+                i++;
+            }
         }
-    }
-    printf("Somma: %d\n", sum);
-    /* -------------------------------------------------------------------- */
-
-    print_chessboard(chessboard,chessboard_sem_id,parameters_id, rows, columns);
-
-                    /* Set semaphores and wait */
-    /* -------------------------------------------------------------------- */
-    sem_set_val(master_sem_id, A, parameters->SO_NUM_G);
-
-    sem_set_val(master_sem_id, SYNCHRO, parameters->SO_NUM_G);
-    
-    sem_reserve_0(master_sem_id, A);
-    /* -------------------------------------------------------------------- */
-
-
-                    /* Unblock players and START GAME */
-    /* -------------------------------------------------------------------- */
-    alarm(parameters->SO_MAX_TIME);
-    sem_set_val(master_sem_id, MASTER, parameters->SO_NUM_G); 
-    /* -------------------------------------------------------------------- */
-
-
-                    /* Wait the players messages*/
-    /* -------------------------------------------------------------------- */
-    for(i = 0; i < flag_number; i++){
-        if((test = msgrcv(master_msg_id, &receive_points,TO_PLAYER, 0, 0)) == -1){
-            fprintf(stderr, "MSGRCV MASTER FAILED: ret: %d, errno: %d, %s\n", test, errno, strerror(errno));
-        }else{
-            printf("LETTO MESSAGGIO MASTER %d\n", receive_points.points);
-            players[receive_points.mtype-65].points += receive_points.points;
+        while(1){
+            pos = rand() % (rows * columns);
+            if(chessboard[pos] == 0){
+                sum += total_score;
+                chessboard[pos] = total_score;
+                printf("%d \n", total_score);
+                break;
+            }
         }
-    }
-    alarm(0);
+        printf("Somma: %d\n", sum);
+        /* -------------------------------------------------------------------- */
 
-    sem_set_val(master_sem_id, WAIT_END_ROUND, parameters->SO_NUM_G);
+        print_chessboard(chessboard,chessboard_sem_id,parameters_id, rows, columns);
+
+                        /* Set semaphores and wait */
+        /* -------------------------------------------------------------------- */
+        sem_set_val(master_sem_id, A, parameters->SO_NUM_G);
+
+        sem_set_val(master_sem_id, SYNCHRO, parameters->SO_NUM_G);
+        
+        sem_reserve_0(master_sem_id, A);
+        /* -------------------------------------------------------------------- */
 
 
-    for (i = 0; i < parameters->SO_NUM_G; i++){
-        if((test = msgrcv(master_msg_id, &receive_points,TO_PLAYER, 0, 0)) == -1){
-            fprintf(stderr, "MSGRCV MASTER FAILED: ret: %d, errno: %d, %s\n", test, errno, strerror(errno));
-        }else{
-            players[receive_points.mtype-65].used_moves += receive_points.points;
+                        /* Unblock players and START GAME */
+        /* -------------------------------------------------------------------- */
+        alarm(parameters->SO_MAX_TIME);
+        sem_set_val(master_sem_id, MASTER, parameters->SO_NUM_G); 
+        /* -------------------------------------------------------------------- */
+
+
+                        /* Wait the players messages*/
+        /* -------------------------------------------------------------------- */
+        for(i = 0; i < flag_number; i++){
+            if((test = msgrcv(master_msg_id, &receive_points,TO_PLAYER, 0, 0)) == -1){
+                fprintf(stderr, "MSGRCV MASTER FAILED: ret: %d, errno: %d, %s\n", test, errno, strerror(errno));
+            }else{
+                printf("LETTO MESSAGGIO FLAG %d\n", receive_points.points);
+                players[receive_points.mtype-65].points += receive_points.points;
+            }
         }
-    }
-    /* -------------------------------------------------------------------- */
+        
+        alarm(0);
+        round_number++;
+        sem_set_val(master_sem_id, WAIT_END_ROUND, parameters->SO_NUM_G);
 
+
+        for (i = 0; i < parameters->SO_NUM_G; i++){
+            if((test = msgrcv(master_msg_id, &receive_points,TO_PLAYER, 0, 0)) == -1){
+                fprintf(stderr, "MSGRCV MASTER FAILED: ret: %d, errno: %d, %s\n", test, errno, strerror(errno));
+            }else{
+                printf("LETTO MESSAGGIO MOSSE\n");
+                players[receive_points.mtype-65].used_moves += receive_points.points;
+            }
+        }
+        /* -------------------------------------------------------------------- */
+
+    }
     
     /* Wait the dead children*/
-    while((select = wait(NULL)) != -1);
-		/*printf("Process %d\n", select);*/
     
-    for(i = 0; i < parameters->SO_NUM_G; i++){
-        printf("PLAYER %c: POINTS: %d USED MOVES: %d\n", i+65, players[i].points, players[i].used_moves);
-    }
-
-
-    free(players);
-    print_chessboard(chessboard,chessboard_sem_id,parameters_id, rows, columns);
-
-    semctl(chessboard_sem_id, 0, IPC_RMID);
-    semctl(master_sem_id, 0, IPC_RMID);
-    semctl(turn_sem_id, 0, IPC_RMID);
-    shmctl(parameters_id, IPC_RMID, NULL);
-    shmctl(chessboard_mem_id, IPC_RMID, NULL);
-    shmctl(positions_id, IPC_RMID, NULL);
-    msgctl(master_msg_id, IPC_RMID, NULL);
-
+    
 
 	return 0;
 }
@@ -337,8 +336,6 @@ int calculate_position(int parameters_id,int chessboard_mem_id,int chessboard_se
     positions_id = shmget(POSITIONS_MEM_KEY,sizeof(int) * pawns_number, 0666 | IPC_CREAT);
     positions = shmat(positions_id,NULL,0);
 
-
-    /* 2 Player x 7 pawns */
 
     printf("pawns_number: %d\n", pawns_number);
     printf("rad of pawns_number: %f, ceil: %f\n", sqrt(pawns_number), ceil(sqrt(pawns_number)));
@@ -558,5 +555,25 @@ void print_chessboard(int * chessboard, int chessboard_sem_id,int parameters_id,
 }
 
 void sigint_handler (int signal){
-    printf("HANDLER SIGINT\n");
+    int i;
+    printf("ROUND N: %d\n", round_number);
+    for(i = 0; i < parameters->SO_NUM_G; i++){
+        kill(players[i].pid, SIGINT);
+    }
+
+    printf("ASPETTO FIGLI\n");
+    while(wait(NULL) != -1);
+    printf("HO FINITO DI ASPETTARE I FIGLI\n");
+
+    
+
+    semctl(chessboard_sem_id, 0, IPC_RMID);
+    semctl(master_sem_id, 0, IPC_RMID);
+    semctl(turn_sem_id, 0, IPC_RMID);
+    shmctl(parameters_id, IPC_RMID, NULL);
+    shmctl(chessboard_mem_id, IPC_RMID, NULL);
+    shmctl(positions_id, IPC_RMID, NULL);
+    msgctl(master_msg_id, IPC_RMID, NULL);
+
+    exit(EXIT_SUCCESS);
 }

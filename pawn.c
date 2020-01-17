@@ -32,6 +32,8 @@ int fix_position(PAWN * pawn, int columns, int rows, int * chessboard, int playe
 
 int main(int argc, char *argv[]){
 
+	
+
 	int parameters_id;
 	
 	int player_sem_id;
@@ -64,6 +66,8 @@ int main(int argc, char *argv[]){
 
 	struct end_round_message end_round_to_players;
 
+	printf("PID PAWN %d\n", getpid());
+
 	parameters_id = atol(argv[1]);
 	type = atol(argv[2]);
 	player_letter = -atol(argv[3]);
@@ -77,7 +81,7 @@ int main(int argc, char *argv[]){
 		  /* Getting chessboard, player semaphore and player queue*/
 	/* ---------------------------------------------------------------- */
 	parameters = shmat(parameters_id,NULL,0);
-	player_sem_id = semget(getppid(), 3, 0666);
+	player_sem_id = semget(getppid(), 4, 0666);
 	player_msg_id = msgget(getppid(), 0666);
 	/* ---------------------------------------------------------------- */
 
@@ -117,112 +121,120 @@ int main(int argc, char *argv[]){
     /* ----------------------------------------------------------------- */
     /*printf("STO PER LEGGERE LA STRATEGIA\n");*/
 	
+	while(1){
+		sem_reserve_1(player_sem_id, 3);
+		if((a = msgrcv(player_msg_id, &strategy,LEN_STRATEGY, type, 0))== -1){
+			fprintf(stderr, "MSGRCV PAWN: ret: %d, errno: %d, %s\n", a, errno, strerror(errno));
+		}
 
-	if((a = msgrcv(player_msg_id, &strategy,LEN_STRATEGY, type, 0))== -1){
-		fprintf(stderr, "MSGRCV: ret: %d, errno: %d, %s\n", a, errno, strerror(errno));
-	}
+		/*printf("Pedina riceve strategia: %s\n", strategy_pawn.strategy);*/
+	    /* ----------------------------------------------------------------- */
 
-	/*printf("Pedina riceve strategia: %s\n", strategy_pawn.strategy);*/
-    /* ----------------------------------------------------------------- */
-
-	pawn.directions = (int *)malloc(sizeof(int) * 4);
-
-
-
-	if(strategy.selected == 1){
-
-		pawn.directions[N] = strategy.directions[N];
-		pawn.directions[S] = strategy.directions[S];
-		pawn.directions[E] = strategy.directions[E];
-		pawn.directions[W] = strategy.directions[W];
-
-		flag_x = strategy.flag_x;
-		flag_y = strategy.flag_y;
-		flag_position = strategy.flag_position;
-
-	}
-
-	/*
-	.
-	.
-	. Gestione strategia ricevuta
-	.
-	.
-	.
-	*/
-	
-					/* Unblock players */
-    /* ----------------------------------------------------------------- */
-	sem_reserve_1(player_sem_id, 0);
-    /* ----------------------------------------------------------------- */
-	
+		pawn.directions = (int *)malloc(sizeof(int) * 4);
 
 
-					/* Wait for 1 on START */
-    /* ----------------------------------------------------------------- */
-    if((master_sem_id = semget(MAIN_SEM, 5, 0666)) == -1){
-		if(errno == ENOENT)
-			fprintf(stderr, "Failed access to memory for pawns\n");
-		exit(EXIT_FAILURE);
-	}
-	
-	sem_reserve_1(master_sem_id, START);
-    /* ----------------------------------------------------------------- */
-	taken = 0;
-	if(strategy.selected == 1){
-		flag = 0;
-		while(1){
-			while(has_moves(&pawn)){
-				if(chessboard[flag_position] > 0){
-					move(columns, player_letter, &pawn, chessboard, rows, player_msg_id_results,type,&taken);
-				}else{
-					break;
-				}
-			}
-			if((a = msgrcv(player_msg_id, &strategy,LEN_STRATEGY, type, IPC_NOWAIT)) != -1){
-				pawn.directions[N] += strategy.directions[N];
-				pawn.directions[S] += strategy.directions[S];
-				pawn.directions[E] += strategy.directions[E];
-				pawn.directions[W] += strategy.directions[W];
-				flag_position = strategy.flag_position;
 
-				if(pawn.directions[N] > 0 && pawn.directions[S] > 0){
-					if(pawn.directions[N] > pawn.directions[S]){
-						pawn.directions[N] -= pawn.directions[S];
-						pawn.directions[S] = 0;
+		if(strategy.selected == 1){
+
+			pawn.directions[N] = strategy.directions[N];
+			pawn.directions[S] = strategy.directions[S];
+			pawn.directions[E] = strategy.directions[E];
+			pawn.directions[W] = strategy.directions[W];
+
+			flag_x = strategy.flag_x;
+			flag_y = strategy.flag_y;
+			flag_position = strategy.flag_position;
+
+		}
+
+		/*
+		.
+		.
+		. Gestione strategia ricevuta
+		.
+		.
+		.
+		*/
+
+		printf("VALORE SEMAFORO PEDINA: %d\n", semctl(player_sem_id, 0, GETVAL));
+		
+						/* Unblock players */
+	    /* ----------------------------------------------------------------- */
+		sem_reserve_1(player_sem_id, 0);
+	    /* ----------------------------------------------------------------- */
+		
+
+
+						/* Wait for 1 on START */
+	    /* ----------------------------------------------------------------- */
+	    if((master_sem_id = semget(MAIN_SEM, 5, 0666)) == -1){
+			if(errno == ENOENT)
+				fprintf(stderr, "Failed access to memory for pawns\n");
+			exit(EXIT_FAILURE);
+		}
+		
+		sem_reserve_1(master_sem_id, START);
+	    /* ----------------------------------------------------------------- */
+		taken = 0;
+		if(strategy.selected == 1){
+			flag = 0;
+			while(1){ 			/* HO MESSO IL WHILE 1, SCEMO*/
+				while(has_moves(&pawn)){
+					if(chessboard[flag_position] > 0){
+						move(columns, player_letter, &pawn, chessboard, rows, player_msg_id_results,type,&taken);
 					}else{
-						pawn.directions[S] -= pawn.directions[N];
-						pawn.directions[N] = 0;
+						break;
 					}
 				}
+				if((a = msgrcv(player_msg_id, &strategy,LEN_STRATEGY, type, IPC_NOWAIT)) != -1){
+					pawn.directions[N] += strategy.directions[N];
+					pawn.directions[S] += strategy.directions[S];
+					pawn.directions[E] += strategy.directions[E];
+					pawn.directions[W] += strategy.directions[W];
+					flag_position = strategy.flag_position;
 
-				if(pawn.directions[W] > 0 && pawn.directions[E] > 0){
-					if(pawn.directions[W] > pawn.directions[E]){
-						pawn.directions[W] -= pawn.directions[E];
-						pawn.directions[E] = 0;
-					}else{
-						pawn.directions[E] -= pawn.directions[W];
-						pawn.directions[W] = 0;
+					if(pawn.directions[N] > 0 && pawn.directions[S] > 0){
+						if(pawn.directions[N] > pawn.directions[S]){
+							pawn.directions[N] -= pawn.directions[S];
+							pawn.directions[S] = 0;
+						}else{
+							pawn.directions[S] -= pawn.directions[N];
+							pawn.directions[N] = 0;
+						}
 					}
-				}
-			}else break;
-		}	
+
+					if(pawn.directions[W] > 0 && pawn.directions[E] > 0){
+						if(pawn.directions[W] > pawn.directions[E]){
+							pawn.directions[W] -= pawn.directions[E];
+							pawn.directions[E] = 0;
+						}else{
+							pawn.directions[E] -= pawn.directions[W];
+							pawn.directions[W] = 0;
+						}
+					}
+				}else break;
+			}	
+		}
+		
+		sem_reserve_1(player_sem_id, 1);
+		printf("UNLOCKATO %c\n", -player_letter);
+		sem_reserve_1(player_sem_id, 2);
+
+		end_round_to_players.mtype = type;
+		end_round_to_players.x = pawn.x;
+		end_round_to_players.y = pawn.y;
+		end_round_to_players.remaining_moves = pawn.remaining_moves;
+
+		if(msgsnd(player_msg_id, &end_round_to_players, END_ROUND_MESSAGE, 0) == -1){
+			fprintf(stderr, "Failed Message Send Presa#%d: %s\n", errno, strerror(errno));
+		}else{
+			printf("MESSAGGIO MANDATO PEDINA\n");
+		}
+
+		free(pawn.directions);
 	}
+
 	
-	sem_reserve_1(player_sem_id, 1);
-	printf("UNLOCKATO %c\n", -player_letter);
-	sem_reserve_1(player_sem_id, 3);
-
-	end_round_to_players.mtype = type;
-	end_round_to_players.x = pawn.x;
-	end_round_to_players.y = pawn.y;
-	end_round_to_players.remaining_moves = pawn.remaining_moves;
-
-	if(msgsnd(player_msg_id, &end_round_to_players, END_ROUND_MESSAGE, 0) == -1){
-		fprintf(stderr, "Failed Message Send Presa#%d: %s\n", errno, strerror(errno));
-	}
-
-	free(pawn.directions);
 	/* sem_reserve() => vai a dormire */
 
 
