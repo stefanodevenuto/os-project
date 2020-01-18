@@ -22,14 +22,14 @@ The Sinchronization of the entire Game is regulated with a series of Semaphores 
 
 ## Message Queues
 1. **Master-Players queue**
-    Used to send the Taken-Flag messages and the Used Moves from the Players to the Master
+    * Used to send the Taken-Flag messages and the Used Moves from the Players to the Master
 2. **Player-Pawns**
-    1. Used by the player to send the Positions and the Goal-Flag dispositions to the Pawns
-    2. Used by the Pawns to send the Taken-Flag Messages to the Player, in order to not receive the sent message while reading the Strategy Messages.
+    * 1. Used by the player to send the Positions and the Goal-Flag dispositions to the Pawns
+    * 2. Used by the Pawns to send the Taken-Flag Messages to the Player, in order to not receive the       sent message while reading the Strategy Messages.
 
 ## Shared Memory
 1. **Chessboard**
     The *chessboard* is realized with an array allocated in Shared Memory.
     The size of this portion of memory is the multiplication of the columns number and the rows number.
 
-    > To treat it *like a matrix*, the solution is to applicate *row * columns_number + column* everytime the access is necessary.
+    > To treat it *like a matrix*, the solution is to applicate *row * columns_number + column* formula everytime is necessary to access the chessboard.
