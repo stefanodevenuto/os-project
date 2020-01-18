@@ -5,5 +5,8 @@
 3. Player strategy-alghoritm for the Pawns
 4. Movement strategy of the Pawns
 
-Il **master** comanda tutto.
-Il _player_ spawna pedine.
+# Sinchronization of the game
+The Sinchronization of the entire Game is regulated with a series of Semaphores and Message Queues. The Semaphores used are:
+1. Master Semaphores
+⋅⋅* ##MAIN_SEM
+⋅⋅⋅ 
