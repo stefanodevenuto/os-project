@@ -33,3 +33,8 @@ The Sinchronization of the entire Game is regulated with a series of Semaphores 
     The size of this portion of memory is the multiplication of the columns number and the rows number.
 
     > To treat it *like a matrix*, the solution is to applicate *row * columns_number + column* formula everytime is necessary to access the chessboard.
+
+2. **Parameters**
+    The parameters, read by the Master from the *config.txt* file, are stored in Shared Memory, in order to make them accessible to the Players and the Pawns.
+3. **Positions**
+    Used to store the calculated positions and make them accessible by the Players, in order to complete the positioning phase.
