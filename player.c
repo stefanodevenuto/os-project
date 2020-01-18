@@ -232,7 +232,6 @@ int main(int argc, char *argv[]){
     
 
     					/* Critical section players */
-    
     /* --------------------------------------------------------------------- */
     printf("Player %c : Positioning pawns...\n", player_type);
     for(i = 0; i < parameters->SO_NUM_P; i++){
