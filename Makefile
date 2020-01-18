@@ -1,11 +1,27 @@
-all:
-	gcc -std=c89 -Wpedantic -g -Og -c semaphore.c
-	gcc -std=c89 -Wpedantic -g -Og master.c semaphore.o -o master -lm
-	gcc -std=c89 -Wpedantic -g -Og player.c semaphore.o -o player -lm
-	gcc -std=c89 -Wpedantic -g -Og pawn.c semaphore.o -o pawn
+
+
+OBJ = semaphore.o Makefile
+ALL = master
+MASTER = master
+PLAYER = player
+PAWN = pawn
+
+FLAGS = -std=c89 -Wpedantic -g -Og
+
+$(MASTER): $(OBJ) $(MASTER).c
+	$(CC) $(FLAGS) $(MASTER).c semaphore.o -o $(MASTER) -lm
+
+$(PLAYER): $(OBJ) $(PLAYER).c
+	$(CC) $(FLAGS) $(PLAYER).c semaphore.o -o $(PLAYER) -lm
+
+$(PAWN): $(OBJ) $(PAWN).c
+	$(CC) $(FLAGS) $(PAWN).c semaphore.o -o $(PAWN) -lm
+	
+
+all: $(MASTER) $(PLAYER) $(PAWN)
 
 clean:
-	rm -f *.o $(TARGET) *~
+	rm -f *.o $(MASTER) $(PLAYER) $(PAWN)
 
-run: $(TARGET)
-	./$(TARGET)
+run: all
+	./$(MASTER)

@@ -129,7 +129,7 @@ int main(int argc, char *argv[]){
 
 	int temp_target_count;
 	int flag_target;
-	int z;
+
 	int index_best_distance;
 	int pawn_index;
 	int number;
@@ -242,6 +242,7 @@ int main(int argc, char *argv[]){
     					/* Critical section players */
     
     /* --------------------------------------------------------------------- */
+    printf("Player %c : Positioning pawns...\n", player_type);
     for(i = 0; i < parameters->SO_NUM_P; i++){
     	sem_reserve_1(turn_sem_id, (turn_sem_entry-1 + parameters->SO_NUM_G)% parameters->SO_NUM_G);
 			position = set_pawns(player_type, parameters_id, player_msg_id, chessboard_mem_id, chessboard_sem_id, rows, columns, pawns);
@@ -490,7 +491,7 @@ int main(int argc, char *argv[]){
 		
 		for(i = 0; i < parameters->SO_NUM_P; i++){
 	    	if(pawns[i].assigned > 0){
-		    	printf("\nPlayer: %c-------------------------- PEDINA %d (%d,%d) ------------------------\n",player_type, pawns[i].type,pawns[i].starting_x,pawns[i].starting_y );	
+		    	printf("\nPlayer: %c-------------------------- PAWN %d (%d,%d) ------------------------\n",player_type, pawns[i].type,pawns[i].starting_x,pawns[i].starting_y );	
 		    	for(j = 0; j < flags_number; j++){
 		    		if(pawns[i].target[j].x > -1)
 		    			printf("Player: %c %d: Target #%d => (%d,%d) Moves: %d\n",player_type, i, j,pawns[i].target[j].x,pawns[i].target[j].y ,pawns[i].remaining_moves);
@@ -574,7 +575,6 @@ int main(int argc, char *argv[]){
 		}
 
 
-
 	    total_used_moves = (parameters->SO_N_MOVES * parameters->SO_NUM_P) - total_remaining_moves;
 
 	    sem_reserve_1(master_sem_id, WAIT_END_ROUND);
@@ -644,6 +644,7 @@ int set_pawns(int letter, int parameters_id, int player_msg_id, int chessboard_m
     players = parameters->SO_NUM_G;
     pawns_one_player = parameters->SO_NUM_P;
     srand(getpid());
+
     while(1){
     	i = rand() % (players * pawns_one_player);
     	success = sem_reserve_1_no_wait(chessboard_sem_id, positions[i]);

@@ -227,23 +227,6 @@ int main(int argc, char *argv[]){
 
 		free(pawn.directions);
 	}
-
-	
-	/* sem_reserve() => vai a dormire */
-
-
-	
-	/*
-	.
-	.
-	.
-	. GAME
-	.
-	.
-	.
-	*/
-	printf("MUOIO %c\n", -player_letter);
-	exit(EXIT_SUCCESS);
 }
 
 int has_moves(PAWN * pawn){
@@ -321,7 +304,7 @@ int move_specific(int way,int player_letter, PAWN * pawn, int * chessboard, int 
 					if(msgsnd(player_msg_id_results, &to_player, TO_PLAYER, 0) == -1){
 					   	fprintf(stderr, "Failed Message Send Presa#%d: %s\n", errno, strerror(errno));
 					}
-					printf("%c : PRESA BANDIERA (%d,%d)\n", -player_letter, pawn->x , pawn->y);
+					printf("%c : FLAG TAKEN (%d,%d)\n", -player_letter, pawn->x , pawn->y);
 				}
 				chessboard[pawn->y * columns + pawn->x] = player_letter;
 				chessboard[pawn->y * columns + (pawn->x + 1)] = 0;
@@ -350,7 +333,7 @@ int move_specific(int way,int player_letter, PAWN * pawn, int * chessboard, int 
 					if(msgsnd(player_msg_id_results, &to_player, TO_PLAYER, 0) == -1){
 					   	fprintf(stderr, "Failed Message Send Presa#%d: %s\n", errno, strerror(errno));
 					}
-					printf("%c : PRESA BANDIERA (%d,%d)\n", -player_letter, pawn->x , pawn->y);
+					printf("%c : FLAG TAKEN (%d,%d)\n", -player_letter, pawn->x , pawn->y);
 				}
 
 				chessboard[pawn->y * columns + pawn->x] = player_letter;
@@ -381,7 +364,7 @@ int move_specific(int way,int player_letter, PAWN * pawn, int * chessboard, int 
 					if(msgsnd(player_msg_id_results, &to_player, TO_PLAYER, 0) == -1){
 					   	fprintf(stderr, "Failed Message Send Presa#%d: %s\n", errno, strerror(errno));
 					}
-					printf("%c : PRESA BANDIERA (%d,%d)\n", -player_letter, pawn->x , pawn->y);
+					printf("%c : FLAG TAKEN (%d,%d)\n", -player_letter, pawn->x , pawn->y);
 				}
 
 				chessboard[pawn->y * columns + pawn->x] = player_letter;
@@ -411,7 +394,7 @@ int move_specific(int way,int player_letter, PAWN * pawn, int * chessboard, int 
 					if(msgsnd(player_msg_id_results, &to_player, TO_PLAYER, 0) == -1){
 					   	fprintf(stderr, "Failed Message Send Presa#%d: %s\n", errno, strerror(errno));
 					}
-					printf("%c : PRESA BANDIERA (%d,%d)\n", -player_letter, pawn->x , pawn->y);
+					printf("%c : FLAG TAKEN (%d,%d)\n", -player_letter, pawn->x , pawn->y);
 				}
 
 				chessboard[pawn->y * columns + pawn->x] = player_letter;

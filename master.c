@@ -37,11 +37,13 @@ PLAYER * players;
 int set_parameters();
 void print_chessboard(int * chessboard, int chessboard_sem_id,int parameters_id, int rows, int columns);
 int calculate_position(int parameters_id,int chessboard_mem_id,int chessboard_sem_id, int rows, int columns);
-void sigint_handler(int signal);
+void sig_alarm_handler(int signal);
+void sigint_handler (int signal);
 
 int main(int argc, char const *argv[]){
 
     struct sigaction sa;
+    struct sigaction sigint;
     int chessboard_rows;
     int chessboard_cols;
     int test;
@@ -92,9 +94,16 @@ int main(int argc, char const *argv[]){
 
     bzero(&sa, sizeof(sa));
 
-    sa.sa_handler = sigint_handler;
+    sa.sa_handler = sig_alarm_handler;
 
     sigaction(SIGALRM, &sa, NULL);
+
+
+    bzero(&sigint, sizeof(sigint));
+
+    sigint.sa_handler = sigint_handler;
+
+    sigaction(SIGINT, &sigint, NULL);
 
     round_number = 0;
 	
@@ -120,7 +129,9 @@ int main(int argc, char const *argv[]){
     args[4] = NULL;
 
 
-    /*print_chessboard();
+    /*print_chessboard();*/
+
+    play_time = 0;
 
 
                 /* Setting mutual exclusion semaphore for turns */
@@ -268,7 +279,7 @@ int main(int argc, char const *argv[]){
             }
         }
         
-        play_time = alarm(0);
+        play_time += alarm(0);
         round_number++;
         sem_set_val(master_sem_id, WAIT_END_ROUND, parameters->SO_NUM_G);
 
@@ -278,7 +289,7 @@ int main(int argc, char const *argv[]){
                 fprintf(stderr, "MSGRCV MASTER FAILED: ret: %d, errno: %d, %s\n", test, errno, strerror(errno));
             }else{
                 
-                players[receive_points.mtype-65].used_moves += receive_points.points;
+                players[receive_points.mtype-65].used_moves = receive_points.points;
             }
         }
         /* -------------------------------------------------------------------- */
@@ -421,8 +432,6 @@ int set_parameters(){
     .
     */
     FILE *fd;
-    int a;
-    int b;
     
     parameters_id = shmget(PARAMETERS_MEM_KEY,sizeof(struct param), 0666 | IPC_CREAT);
     parameters = shmat(parameters_id,NULL,0);
@@ -437,7 +446,7 @@ int set_parameters(){
         exit(EXIT_FAILURE);
     }
 
-    printf("Sto leggendo...\n");
+    printf("Master : Reading Settings...\n");
 
     fscanf(fd, "%*s\t%*c\t%d\n%*s\t%*c\t%d\n%*s\t%*c\t%d\n%*s\t%*c\t%d\n%*s\t%*c\t%d\n%*s\t%*c\t%d\n%*s\t%*c\t%d\n%*s\t%*c\t%d\n%*s\t%*c\t%d\n%*s\t%*c\t%d", \
         &parameters->SO_NUM_G, &parameters->SO_NUM_P,&parameters->SO_MAX_TIME,&parameters->SO_BASE,&parameters->SO_ALTEZZA,&parameters->SO_FLAG_MIN,&parameters->SO_FLAG_MAX,&parameters->SO_ROUND_SCORE,&parameters->SO_N_MOVES,&parameters->SO_MIN_HOLD_NSEC);
@@ -508,21 +517,26 @@ void print_chessboard(int * chessboard, int chessboard_sem_id,int parameters_id,
     }*/
 }
 
-void sigint_handler (int signal){
+void sig_alarm_handler (int signal){
     int i;
     int j;
     int total_points;
     total_points = 0;
+    printf("\n\n\n\t\t\t\t\t\tChessboard Status\n");
+    print_chessboard(chessboard,chessboard_sem_id,parameters_id, parameters->SO_ALTEZZA, parameters->SO_BASE);
     printf("\n\n-------------------------- Statistics --------------------------\n\n");
     printf("\tRound Played:\t%d\n\n", round_number);
+    printf("\tPlay Time:\t%f\n\n", (float)play_time);
     for(i = 0; i < parameters->SO_NUM_G; i++){
         printf("\t------------------- Player %c --------------------\n\n", i+65);
-        printf("\tPercentage of Used Moves:\t%f\n", (float)players[i].used_moves / (float)parameters->SO_N_MOVES);
+        printf("\tPoints:\t%d\n", players[i].points);
+        printf("\tUsed Moves:\t%d\n", players[i].used_moves);
+        printf("\tPercentage of Used Moves:\t%f\n", (float)players[i].used_moves / ((float)parameters->SO_N_MOVES * (float)parameters->SO_NUM_P));
         printf("\tPoints by Used Moves:\t%f\n", (float)players[i].points / (float)players[i].used_moves);
         total_points += players[i].points;
         printf("\t--------------------------------------------------\n\n");
     }
-    printf("\tTotal points by Game Time:\t%d\n", total_points / play_time);
+    printf("\tTotal points by Game Time:\t%f\n", (float)total_points / (float)play_time);
     printf("\n\n----------------------------------------------------------------\n\n");
 
 
@@ -531,6 +545,22 @@ void sigint_handler (int signal){
     }
 
     
+    while(wait(NULL) != -1);
+    
+    semctl(chessboard_sem_id, 0, IPC_RMID);
+    semctl(master_sem_id, 0, IPC_RMID);
+    semctl(turn_sem_id, 0, IPC_RMID);
+    shmctl(parameters_id, IPC_RMID, NULL);
+    shmctl(chessboard_mem_id, IPC_RMID, NULL);
+    shmctl(positions_id, IPC_RMID, NULL);
+    msgctl(master_msg_id, IPC_RMID, NULL);
+
+    exit(EXIT_SUCCESS);
+}
+
+void sigint_handler (int signal){
+    printf("\n\nRound Played Before Stopping:\t%d\n\n", round_number);
+
     while(wait(NULL) != -1);
     
     semctl(chessboard_sem_id, 0, IPC_RMID);
