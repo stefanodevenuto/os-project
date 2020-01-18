@@ -38,3 +38,6 @@ The Sinchronization of the entire Game is regulated with a series of Semaphores 
     The parameters, read by the Master from the *config.txt* file, are stored in Shared Memory, in order to make them accessible to the Players and the Pawns.
 3. **Positions**
     Used to store the calculated positions and make them accessible by the Players, in order to complete the positioning phase.
+
+## Synchronization
+
