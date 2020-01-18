@@ -1,4 +1,4 @@
-#OS-Project 2019/2020
+# OS-Project 2019/2020
 ## Index
 1. Sinchronization of the game and related Scheme
 2. Positioning of the Pawns
