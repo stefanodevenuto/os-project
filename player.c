@@ -163,14 +163,6 @@ int main(int argc, char *argv[]){
 
     sigaction(SIGINT, &sa, NULL);
 
-	
-				/* Checking passed arguments */
-	/* ---------------------------------------------------------------- */
-	if(argc < 2){
-		fprintf(stderr, "Failed to pass parameter to players%s\n");
-		exit(EXIT_FAILURE);
-	}
-	/* ---------------------------------------------------------------- */
 
 	
 	parameters_id = atoi(argv[1]);
@@ -230,7 +222,7 @@ int main(int argc, char *argv[]){
     sem_set_val(player_sem_id, 0, parameters->SO_NUM_P);
     /* -----------------------------------------------------------------*/
 
-    /* ----- Setting message queue for players------ */
+    /* ----- Setting message queues for players------ */
     player_msg_id = msgget(getpid(), 0666 | IPC_CREAT);
     player_msg_id_results = msgget(IPC_PRIVATE, 0666);
     master_msg_id = msgget(getppid(), 0666);
@@ -349,7 +341,13 @@ int main(int argc, char *argv[]){
 	    sem_set_val(player_sem_id, 0, parameters->SO_NUM_P);
 	    
 
-	    /*----------------------------ALGORITMO--------------------------------------*/
+	    /*---------------------------- ALGORITHM --------------------------------------*/
+	    /*The aim of this Algorithm is to split the calculations in two parts: 
+	      1. Calculate the nearest pawn for every flag and associate the flag in the 
+	         temp_target array of the pawn itself
+	      2. Until every flag is checked, the second part takes all the assigned pawns and 
+	         re-order the flags by their distances*/
+
 		    while(!all_checked_flag(flags,flags_number)){	
 		    	/* PRIMA PARTE */
 		    	strategy.selected = 0;
@@ -489,6 +487,8 @@ int main(int argc, char *argv[]){
 			free(flags);
 	    /*-----------------------------------------------------------------------------------*/
 		
+
+		/* Print of the Player Assignements for the selected Pawns */
 		for(i = 0; i < parameters->SO_NUM_P; i++){
 	    	if(pawns[i].assigned > 0){
 		    	printf("\nPlayer: %c-------------------------- PAWN %d (%d,%d) ------------------------\n",player_type, pawns[i].type,pawns[i].starting_x,pawns[i].starting_y );	
@@ -536,7 +536,7 @@ int main(int argc, char *argv[]){
 		/* -------------------------------------------------------------------------- */
 
 
-						/* Read taken-or-not flag messages*/
+						/* Read taken flag messages*/
 		/* -------------------------------------------------------------------------- */
 		while((a = msgrcv(player_msg_id_results, &to_player,TO_PLAYER, 0, IPC_NOWAIT)) != -1){
 			total_points += to_player.points;
@@ -552,6 +552,7 @@ int main(int argc, char *argv[]){
 /* --------------------------------------- END TIME -------------------------------------------------------*/
 
 
+		/* Unblock pawns to send the remaining parameters to the players*/
 		sem_set_val(player_sem_id,2,parameters->SO_NUM_P);
 
 
@@ -577,6 +578,8 @@ int main(int argc, char *argv[]){
 
 	    total_used_moves = (parameters->SO_N_MOVES * parameters->SO_NUM_P) - total_remaining_moves;
 
+
+	    /* Wait the reading of the Master for the fist half of the messages */
 	    sem_reserve_1(master_sem_id, WAIT_END_ROUND);
 
 
@@ -597,19 +600,7 @@ int main(int argc, char *argv[]){
 	    	pawns[i].assigned = 0;
 	    	pawns[i].temp_assigned = 0;
     	}
-
-
-    	
 	}
-    
-    /*free(pawns);*/
-
-    
-    
-
-        
-    
-	exit(EXIT_SUCCESS);
 }
 
 int set_pawns(int letter, int parameters_id, int player_msg_id, int chessboard_mem_id, int chessboard_sem_id, int rows, int columns, struct pawn * pawns){

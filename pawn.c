@@ -85,7 +85,6 @@ int main(int argc, char *argv[]){
 
 		     /* Receiving coordinates and accessing chessboard*/
 	/* ---------------------------------------------------------------- */
-	/*printf("STO PER RICEVERE LE COORDINATE\n");*/
 	a = msgrcv(player_msg_id, &message_to_pawn, LEN_X_Y, type, 0);
 	if(a == -1){
 		fprintf(stderr, "MSGRCV: ret: %d, errno: %d, %s\n", a, errno, strerror(errno));
@@ -114,9 +113,9 @@ int main(int argc, char *argv[]){
 
 					/* Wait for strategy */
     /* ----------------------------------------------------------------- */
-    /*printf("STO PER LEGGERE LA STRATEGIA\n");*/
 	
 	while(1){
+		/* Waiting on the Start-Round semaphore */
 		sem_reserve_1(player_sem_id, 3);
 		if((a = msgrcv(player_msg_id, &strategy,LEN_STRATEGY, type, 0))== -1){
 			fprintf(stderr, "MSGRCV PAWN: ret: %d, errno: %d, %s\n", a, errno, strerror(errno));
@@ -142,15 +141,7 @@ int main(int argc, char *argv[]){
 
 		}
 
-		/*
-		.
-		.
-		. Gestione strategia ricevuta
-		.
-		.
-		.
-		*/
-
+		
 
 						/* Unblock players */
 	    /* ----------------------------------------------------------------- */
@@ -172,7 +163,7 @@ int main(int argc, char *argv[]){
 		taken = 0;
 		if(strategy.selected == 1){
 			flag = 0;
-			while(1){ 			/* HO MESSO IL WHILE 1, SCEMO*/
+			while(1){
 				while(has_moves(&pawn)){
 					if(chessboard[flag_position] > 0){
 						move(columns, player_letter, &pawn, chessboard, rows, player_msg_id_results,type,&taken);
@@ -181,6 +172,7 @@ int main(int argc, char *argv[]){
 					}
 				}
 				if((a = msgrcv(player_msg_id, &strategy,LEN_STRATEGY, type, IPC_NOWAIT)) != -1){
+					/* Re-Calculate the new dispositions of the Player */
 					pawn.directions[N] += strategy.directions[N];
 					pawn.directions[S] += strategy.directions[S];
 					pawn.directions[E] += strategy.directions[E];
@@ -209,9 +201,10 @@ int main(int argc, char *argv[]){
 				}else break;
 			}	
 		}
-		
+		/* Unblock Player */
 		sem_reserve_1(player_sem_id, 1);
 
+		/* Wait the sending of the second half of messages */
 		sem_reserve_1(player_sem_id, 2);
 
 		end_round_to_players.mtype = type;
@@ -294,7 +287,6 @@ int move_specific(int way,int player_letter, PAWN * pawn, int * chessboard, int 
 	switch(way){
 		case W:
 			if(sem_reserve_1_time(chessboard_sem_id, pawn->y * columns + (pawn->x - 1)) != -1){
-				/* Forse da fare controllo se ho preso una bandierina */
 				pawn->x--;
 				if(chessboard[pawn->y * columns + pawn->x] > 0){
 					to_player.points = chessboard[pawn->y * columns + pawn->x];
@@ -311,7 +303,7 @@ int move_specific(int way,int player_letter, PAWN * pawn, int * chessboard, int 
 				sem_release(chessboard_sem_id, pawn->y * columns + (pawn->x + 1));
 				pawn->remaining_moves--;
 				pawn->directions[W]--;
-				/* NANOSLEEP */
+				
 				nanosleep(&timeout, NULL);
 				if(flag > 0){
 					return 2;
@@ -322,7 +314,6 @@ int move_specific(int way,int player_letter, PAWN * pawn, int * chessboard, int 
 		break;
 		case E:
 			if(sem_reserve_1_time(chessboard_sem_id, pawn->y * columns + (pawn->x + 1)) != -1){
-				/* Forse da fare controllo se ho preso una bandierina */
 				pawn->x++;
 
 				if(chessboard[pawn->y * columns + pawn->x] > 0){
@@ -353,7 +344,6 @@ int move_specific(int way,int player_letter, PAWN * pawn, int * chessboard, int 
 		break;
 		case S:
 			if(sem_reserve_1_time(chessboard_sem_id, (pawn->y + 1) * columns + pawn->x) != -1){
-				/* Forse da fare controllo se ho preso una bandierina */
 				pawn->y++;
 
 				if(chessboard[pawn->y * columns + pawn->x] > 0){
@@ -383,7 +373,6 @@ int move_specific(int way,int player_letter, PAWN * pawn, int * chessboard, int 
 		break;
 		case N:
 			if(sem_reserve_1_time(chessboard_sem_id, (pawn->y - 1) * columns + pawn->x) != -1){
-				/* Forse da fare controllo se ho preso una bandierina */
 				pawn->y--;
 
 				if(chessboard[pawn->y * columns + pawn->x] > 0){

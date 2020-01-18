@@ -113,9 +113,8 @@ int main(int argc, char const *argv[]){
     setvbuf(stdout, NULL, _IONBF, 0);
 	setvbuf(stderr, NULL, _IONBF, 0);
 	
-	/* Get and parse of the set enviroment */
-	
-    set_parameters();
+	/* Get and Read the Parameters from the config.txt file and allocate a Share Memory for them */
+	set_parameters();
     
 
     sprintf (sprintf_parameters_id, "%d", parameters_id);
@@ -129,14 +128,15 @@ int main(int argc, char const *argv[]){
     args[4] = NULL;
 
 
-    /*print_chessboard();*/
-
+   
+    /* Initializing Play Time */
     play_time = 0;
 
 
                 /* Setting mutual exclusion semaphore for turns */
     /* -------------------------------------------------------------------- */
     turn_sem_id = semget(MUTUAL_TURN, parameters->SO_NUM_G, 0666 | IPC_CREAT);
+    /* Used to implement the mutual exclusion for the players positioning phase*/
     semctl(turn_sem_id, parameters->SO_NUM_G-1, SETVAL, 1);
     /* -------------------------------------------------------------------- */
     
@@ -198,12 +198,10 @@ int main(int argc, char const *argv[]){
     }
 
 
-    /* Used for the wait-for-zero for the master by players*/
+                /* Used for the wait-for-zero for the master by players*/
+    /* ----------------------------------------------------------------------------*/
     sem_set_val(master_sem_id, SYNCHRO, 0);
     sem_set_val(master_sem_id, MASTER, parameters->SO_NUM_G);
-
-    /* Used to implement the mutual exclusion for the players positioning phase*/
-    
     /* ----------------------------------------------------------------------------*/
 
 
@@ -281,6 +279,8 @@ int main(int argc, char const *argv[]){
         
         play_time += alarm(0);
         round_number++;
+
+        /* Notificate the Player that the Master read the first half of the messages */
         sem_set_val(master_sem_id, WAIT_END_ROUND, parameters->SO_NUM_G);
 
 
@@ -296,11 +296,6 @@ int main(int argc, char const *argv[]){
 
     }
     
-    /* Wait the dead children*/
-    
-    
-
-	return 0;
 }
 
 int calculate_position(int parameters_id,int chessboard_mem_id,int chessboard_sem_id, int rows, int columns){
@@ -375,7 +370,7 @@ int calculate_position(int parameters_id,int chessboard_mem_id,int chessboard_se
 
 
     
-    /* To avoid the creation of a new fake row between a step */
+                /* To avoid the creation of a new fake row between a step */
     /* -------------------------------------------------------------------------------- */
 
     while((perfect_matrix_rows - 1) * y_step + init_y >= rows && init_y > 0){
