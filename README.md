@@ -84,7 +84,7 @@ After all the job is done, she unlock the Player and wait on the second entry of
 
 14. The pawns send the informations to the players and the players send those to the Master, which updates the statistics of the Players.
 
-15. The game **restart**
+15. The game **restart** from point 5.
 
 # Player strategy-alghoritm for the Pawns
 
@@ -106,3 +106,31 @@ struct pawn{
     int temp_assigned;
 };
 ```
+For every flag and for every pawn, the distance between them is calculated, and if it's the lowest, the correspondent flag is assigned to the temp_target flags array and the temp_assigned variable is incremented, **but** the x variable and the y variable are not modified, in order to find all the possible assignable flags.
+The flag struct is composed by:
+
+```c
+struct flag{
+	int number;
+	int position;
+	int x;
+	int y;
+	int distance;
+	int checked;
+};
+```
+The second step consists in reorganize the temp_target array in order to obtain the nearest of the assigned flags. Now the position and the real target array of the pawn will be updated, the temp_target array and the temp_assigned variable cleared and the flag *checked*, in order to find new assignable flags in the first step.
+Whenever a flag is assigned, a *strategy* is made, following this type of message struct:
+
+```c
+struct player_strategy{
+    long mtype;
+    int directions[4];
+    int flag_x;
+    int flag_y;
+    int flag_position;
+    int selected;
+};
+```
+The directions array will contain the number of N/S/E/W moves to be done in order to obtain the flag.
+This message will be sent in the first Player Message Queue, and later the Pawn will read that. 
