@@ -1,14 +1,14 @@
 # OS-Project 2019/2020
 ## Index
-1. IPCs used, sinchronization of the game and related Scheme
-2. 
+1. IPCs used
+2. Sinchronization of the game
 3. Positioning of the Pawns
 4. Player strategy-alghoritm for the Pawns
 5. Movement strategy of the Pawns
 
 # IPCs Used
 
-## Semaphores
+### Semaphores
 The Sinchronization of the entire Game is regulated with a series of Semaphores and Message Queues. The Semaphores used are:
 1.  **Master Semaphores**
     * **Main Semaphore**
@@ -22,14 +22,14 @@ The Sinchronization of the entire Game is regulated with a series of Semaphores 
 2. **Players Semaphores**
     An array of 4 semaphores used to garantuee the synchronization between Player and Pawns, usually in Wait-for-0 mode.
 
-## Message Queues
+### Message Queues
 1. **Master-Players queue**
     * Used to send the Taken-Flag messages and the Used Moves from the Players to the Master
 2. **Player-Pawns**
     1. Used by the player to send the Positions and the Goal-Flag dispositions to the Pawns
     2. Used by the Pawns to send the Taken-Flag Messages to the Player, in order to not receive the       sent message while reading the Strategy Messages.
 
-## Shared Memories
+### Shared Memories
 1. **Chessboard**
     The *chessboard* is realized with an array allocated in Shared Memory.
     The size of this portion of memory is the multiplication of the columns number and the rows number.
@@ -41,7 +41,7 @@ The Sinchronization of the entire Game is regulated with a series of Semaphores 
 3. **Positions**
     Used to store the calculated positions and make them accessible by the Players, in order to complete the positioning phase.
 
-## Synchronization
+# Synchronization
 The Synchronization is made up by different steps:
 1. The Master initializes the SYNCHRO entry with 0 and the MASTER entry with the number of players.
    He also initialize the size-1 entry of the Turn Semaphore with 1, to make accessible the positioning for the first player. 
@@ -52,7 +52,7 @@ The mechanism is schematized in the image below:
 
 ![Critical Section](Positioning.png)
 
-> In the critical section, a player peek a valid position in the chessboard by taking it in the Positions Shared Memory, every time it's his turn, and send that with the first Message Queue to the Pawns.
+In the critical section, a player peek a valid position in the chessboard by taking it in the Positions Shared Memory, every time it's his turn, and send that with the first Message Queue to the Pawns.
 Then, he forks the pawns, and wait for 0 on the semaphore he set.
 
 3. The Pawns read the message related to their type and set their positions, unlock the players by reserving the player set semaphore and wait in read for the strategy message.
@@ -62,12 +62,27 @@ Then, he forks the pawns, and wait for 0 on the semaphore he set.
 5. The master calculates the number of flags, their score and place them in the chessboard.
 Then he set the A entry and the SYNCHRO entry of the Main Semaphore to the number of players and wait for 0 on the first one.
 
-6. The player set again the first entry of the Player Semaphore, calculate the associations flag(s)-pawn and send the strategy to the pawns.
-The he wait for 0 on the set semaphore.
+6. The player set again the first entry of the Player Semaphore, calculate the associations flag(s)-pawn, send the strategy to the pawns and set the third entry of the Player Semaphore to the number of pawns, to notificate them that the segy is ready. 
+Then he wait for 0 on the set semaphore.
 
 7. The pawns unblocks theirselves by reading the message, handle the received strategy by creating an array to store all the informations, unlock the players and wait on the START entry of the Main Semaphore.
 
 8. The players unlock the Master by reserving on A entry.
 
 9. The game starts with the Master that unlock the players by setting the MASTER entry to the number of Players and the players unlock the Pawns by setting the START entry to yhe number of them.
+
+10. Now that the game is started, the Master wait for a number of messages equal to the number of the flags set. If these messages doesn't arrive in time, the game ends.
+
+11. The player wait on the second entry of the Player Semaphore array that all the pawns terminates their work.
+
+12. The pawns use the strategy sent to try to get the associated flag. In case of success, the pawn notificates the player by sending a message with the score of the flag in the second messgae queue.
+But in every case, the pawn check if she has anothe flag associated by reading the first queue.
+After all the job is done, she unlock the Player and wait on the second entry of Player Semaphore.
+
+13. The players read all the messages, reply those to the Master and unlock the pawn for read the new positions and the remaining moves for every pawn.
+
+14. The pawns send the informations to the players and the players send thosw to the Master, which updates the statistics of the Players.
+
+15. The game **restart**
+
 
