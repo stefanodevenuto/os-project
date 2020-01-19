@@ -91,20 +91,18 @@ After all the job is done, she unlock the Player and wait on the second entry of
 The idea behind the alghoritm is to find, for every flag, the nearest pawn of the squad.
 That is in fact the first step, which is made with the pawn struct:
 
-    struct pawn{
-        long type;
-        int pid;
-        int x;
-        int y;
-        int starting_x;
-        int starting_y;
-        int remaining_moves;
-        struct flag * target;
-        struct flag * temp_target;
-        int assigned;
-        int temp_assigned;
-    };
-
-'''c
-    int a = 0;
-'''
+```c
+struct pawn{
+    long type;
+    int pid;
+    int x;
+    int y;
+    int starting_x;
+    int starting_y;
+    int remaining_moves;
+    struct flag * target;
+    struct flag * temp_target;
+    int assigned;
+    int temp_assigned;
+};
+```
