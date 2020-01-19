@@ -47,4 +47,5 @@ The Synchronization is made up by different steps:
    After that, he forks the Players and wait for 0 on MASTER the check from the last ones.
 2. The players set the first entry of the Players Semaphore with the number of pawns and try to access the positioning critical section. To do that, he tries to reserve the semaphore of the player before him and, if he did it, release his entry.
 The mechanism is schematized in the image below:
-![Critical Section](Positioning.png) 
+<br>
+![Critical Section](Positioning.png)
