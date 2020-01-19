@@ -27,7 +27,7 @@ The Sinchronization of the entire Game is regulated with a series of Semaphores 
     1. Used by the player to send the Positions and the Goal-Flag dispositions to the Pawns
     2. Used by the Pawns to send the Taken-Flag Messages to the Player, in order to not receive the       sent message while reading the Strategy Messages.
 
-## Shared Memory
+## Shared Memories
 1. **Chessboard**
     The *chessboard* is realized with an array allocated in Shared Memory.
     The size of this portion of memory is the multiplication of the columns number and the rows number.
@@ -40,4 +40,5 @@ The Sinchronization of the entire Game is regulated with a series of Semaphores 
     Used to store the calculated positions and make them accessible by the Players, in order to complete the positioning phase.
 
 ## Synchronization
+CIao come stai?
     CIao come stai?
