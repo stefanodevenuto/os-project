@@ -40,5 +40,8 @@ The Sinchronization of the entire Game is regulated with a series of Semaphores 
     Used to store the calculated positions and make them accessible by the Players, in order to complete the positioning phase.
 
 ## Synchronization
+
 CIao come stai?
+
+
     CIao come stai?
