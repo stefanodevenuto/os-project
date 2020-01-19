@@ -48,4 +48,5 @@ The Synchronization is made up by different steps:
 2. The players set the first entry of the Players Semaphore with the number of pawns and try to access the positioning critical section. To do that, he tries to reserve the semaphore of the player before him and, if he did it, release his entry.
 The mechanism is schematized in the image below:
 <br>
+
 ![Critical Section](Positioning.png)
