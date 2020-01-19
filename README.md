@@ -17,6 +17,7 @@ The Sinchronization of the entire Game is regulated with a series of Semaphores 
     This is the semaphore used to manage the positioning and the movement of the pawns.
     * **Turn Semaphore**
     Used to implement the mutual exclusion positioning for the player.
+    Every entry represents a Player.
 2. **Players Semaphores**
     An array of 4 semaphores used to garantuee the synchronization between Player and Pawns, usually in Wait-for-0 mode.
 
@@ -40,8 +41,10 @@ The Sinchronization of the entire Game is regulated with a series of Semaphores 
     Used to store the calculated positions and make them accessible by the Players, in order to complete the positioning phase.
 
 ## Synchronization
-
-CIao come stai?
-
-
-    CIao come stai?
+The Synchronization is made up by different steps:
+1. The Master initializes the SYNCHRO entry with 0 and the MASTER entry with the number of players.
+   He also initialize the size-1 entry of the Turn Semaphore with 1, to make accessible the positioning for the first player. 
+   After that, he forks the Players and wait for 0 on MASTER the check from the last ones.
+2. The players set the first entry of the Players Semaphore with the number of pawns and try to access the positioning critical section. To do that, he tries to reserve the semaphore of the player before him and, if he did it, release his entry.
+The mechanism is schematized in the image below:
+![Critical Section](https://github.com/stefanodevenuto/os-project/Positioning.png) 
