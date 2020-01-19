@@ -105,3 +105,6 @@ That is in fact the first step, which is made with the pawn struct:
         int temp_assigned;
     };
 
+'''c
+    int a = 0;
+'''
