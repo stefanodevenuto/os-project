@@ -50,3 +50,23 @@ The mechanism is schematized in the image below:
 <br>
 
 ![Critical Section](Positioning.png)
+
+In the critical section, a player peek a valid position in the chessboard by taking it in the Positions Shared Memory, every time it's his turn, and send that with the first Message Queue to the Pawns.
+Then, he forks the pawns, and wait for 0 on the semaphore he set.
+
+3. The Pawns read the message related to their type and set their positions, unlock the players by reserving the player set semaphore and wait in read for the strategy message.
+
+4. The unlocked players unlock the master and wait on the preset SYNCHRO entry of the Main Semaphore
+
+5. The master calculates the number of flags, their score and place them in the chessboard.
+Then he set the A entry and the SYNCHRO entry of the Main Semaphore to the number of players and wait for 0 on the first one.
+
+6. The player set again the first entry of the Player Semaphore, calculate the associations flag(s)-pawn and send the strategy to the pawns.
+The he wait for 0 on the set semaphore.
+
+7. The pawns unblocks theirselves by reading the message, handle the received strategy by creating an array to store all the informations, unlock the players and wait on the START entry of the Main Semaphore.
+
+8. The players unlock the Master by reserving on A entry.
+
+9. The game starts with the Master that unlock the players by setting the MASTER entry to the number of Players and the players unlock the Pawns by setting the START entry to yhe number of them.
+
