@@ -133,4 +133,10 @@ struct player_strategy{
 };
 ```
 The directions array will contain the number of N/S/E/W moves to be done in order to obtain the flag.
-This message will be sent in the first Player Message Queue, and later the Pawn will read that. 
+This message will be sent in the first Player Message Queue, and later the Pawn will read that.
+These two steps are repeated until every flag is checked or unreachable.
+
+# Movement strategy of the Pawns
+
+The pawn takes the Directions from the Message Queue from the player and the first thing that she do is check the selected variable is the message. If it's not, she directly wait to the second entry of the Player Semaphore, otherwhise, until she has moves, she checks if the assigned flag is not taken and tries to move in one of the directions assigned by the Player.
+If the flag disappear or is taken by her, the Pawn try to read from the first Message Queue if there's another pawn assigned to her, calculates the new direction based on her position and repeat the loop. Otherwise, she wait the termination of the others Pawns in the second entry of the Player Semaphore. 
