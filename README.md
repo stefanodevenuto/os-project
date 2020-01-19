@@ -2,9 +2,8 @@
 ## Index
 1. IPCs used
 2. Sinchronization of the game
-3. Positioning of the Pawns
-4. Player strategy-alghoritm for the Pawns
-5. Movement strategy of the Pawns
+3. Player strategy-alghoritm for the Pawns
+4. Movement strategy of the Pawns
 
 # IPCs Used
 
@@ -62,7 +61,7 @@ Then, he forks the pawns, and wait for 0 on the semaphore he set.
 5. The master calculates the number of flags, their score and place them in the chessboard.
 Then he set the A entry and the SYNCHRO entry of the Main Semaphore to the number of players and wait for 0 on the first one.
 
-6. The player set again the first entry of the Player Semaphore, calculate the associations flag(s)-pawn, send the strategy to the pawns and set the third entry of the Player Semaphore to the number of pawns, to notificate them that the segy is ready. 
+6. The player set again the first entry of the Player Semaphore, calculate the associations flag(s)-pawn, send the strategy to the pawns and set the third entry of the Player Semaphore to the number of pawns, to notificate them that the strategy is ready. 
 Then he wait for 0 on the set semaphore.
 
 7. The pawns unblocks theirselves by reading the message, handle the received strategy by creating an array to store all the informations, unlock the players and wait on the START entry of the Main Semaphore.
@@ -79,10 +78,30 @@ Then he wait for 0 on the set semaphore.
 But in every case, the pawn check if she has anothe flag associated by reading the first queue.
 After all the job is done, she unlock the Player and wait on the second entry of Player Semaphore.
 
-13. The players read all the messages, reply those to the Master and unlock the pawn for read the new positions and the remaining moves for every pawn.
+13. The players read all the messages, reply those to the Master, unlock the pawn for read the new positions and the remaining moves for every pawn and wait on WAIT_END_ROUND entry.
 
-14. The pawns send the informations to the players and the players send thosw to the Master, which updates the statistics of the Players.
+14. The Master read all the messages and unlock the players.
+
+14. The pawns send the informations to the players and the players send those to the Master, which updates the statistics of the Players.
 
 15. The game **restart**
 
+# Player strategy-alghoritm for the Pawns
+
+The idea behind the alghoritm is to find, for every flag, the nearest pawn of the squad.
+That is in fact the first step, which is made with the pawn struct:
+
+    struct pawn{
+        long type;
+        int pid;
+        int x;
+        int y;
+        int starting_x;
+        int starting_y;
+        int remaining_moves;
+        struct flag * target;
+        struct flag * temp_target;
+        int assigned;
+        int temp_assigned;
+    };
 
