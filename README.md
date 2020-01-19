@@ -1,11 +1,12 @@
 # OS-Project 2019/2020
 ## Index
-1. IPC's used, sinchronization of the game and related Scheme
-2. Positioning of the Pawns
-3. Player strategy-alghoritm for the Pawns
-4. Movement strategy of the Pawns
+1. IPCs used, sinchronization of the game and related Scheme
+2. 
+3. Positioning of the Pawns
+4. Player strategy-alghoritm for the Pawns
+5. Movement strategy of the Pawns
 
-# IPC's Used
+# IPCs Used
 
 ## Semaphores
 The Sinchronization of the entire Game is regulated with a series of Semaphores and Message Queues. The Semaphores used are:
@@ -51,7 +52,7 @@ The mechanism is schematized in the image below:
 
 ![Critical Section](Positioning.png)
 
-In the critical section, a player peek a valid position in the chessboard by taking it in the Positions Shared Memory, every time it's his turn, and send that with the first Message Queue to the Pawns.
+> In the critical section, a player peek a valid position in the chessboard by taking it in the Positions Shared Memory, every time it's his turn, and send that with the first Message Queue to the Pawns.
 Then, he forks the pawns, and wait for 0 on the semaphore he set.
 
 3. The Pawns read the message related to their type and set their positions, unlock the players by reserving the player set semaphore and wait in read for the strategy message.
