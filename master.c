@@ -179,7 +179,7 @@ int main(int argc, char const *argv[]){
     for (index_child = 0; index_child < parameters->SO_NUM_G; index_child++){
     	switch(players[index_child].pid = fork()){
     		case -1:
-    			fprintf(stderr, "Failed to Fork Players%s\n");
+    			fprintf(stderr, "Failed to Fork Players\n");
     			exit(EXIT_FAILURE);
     		case 0:
                 sprintf (sprintf_number_player, "%d", 64 + index_child+1);
@@ -427,6 +427,7 @@ int set_parameters(){
     .
     */
     FILE *fd;
+    int n;
     
     parameters_id = shmget(PARAMETERS_MEM_KEY,sizeof(struct param), 0666 | IPC_CREAT);
     parameters = shmat(parameters_id,NULL,0);
@@ -443,7 +444,7 @@ int set_parameters(){
 
     printf("Master : Reading Settings...\n");
 
-    fscanf(fd, "%*s\t%*c\t%d\n%*s\t%*c\t%d\n%*s\t%*c\t%d\n%*s\t%*c\t%d\n%*s\t%*c\t%d\n%*s\t%*c\t%d\n%*s\t%*c\t%d\n%*s\t%*c\t%d\n%*s\t%*c\t%d\n%*s\t%*c\t%d", \
+    n = fscanf(fd, "%*s\t%*c\t%d\n%*s\t%*c\t%d\n%*s\t%*c\t%d\n%*s\t%*c\t%d\n%*s\t%*c\t%d\n%*s\t%*c\t%d\n%*s\t%*c\t%d\n%*s\t%*c\t%d\n%*s\t%*c\t%d\n%*s\t%*c\t%d", \
         &parameters->SO_NUM_G, &parameters->SO_NUM_P,&parameters->SO_MAX_TIME,&parameters->SO_BASE,&parameters->SO_ALTEZZA,&parameters->SO_FLAG_MIN,&parameters->SO_FLAG_MAX,&parameters->SO_ROUND_SCORE,&parameters->SO_N_MOVES,&parameters->SO_MIN_HOLD_NSEC);
     
 }
