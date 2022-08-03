@@ -1,4 +1,8 @@
-# OS-Project 2019/2020
+# Chessboard Game
+
+Multiplayer (CPUvsCPU) game, where the CPU that captures the highest number of flags wins!   
+Project done during the "Operative Systems" course @ Università degli Studi di Torino (2019)
+
 ## Index
 1. IPCs used
 2. Sinchronization of the game
