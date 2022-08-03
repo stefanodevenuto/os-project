@@ -204,10 +204,6 @@ int main(int argc, char const *argv[]){
     sem_set_val(master_sem_id, MASTER, parameters->SO_NUM_G);
     /* ----------------------------------------------------------------------------*/
 
-
-                        
-
-
                         /* Wait players */    
     /* ----------------------------------------------------------------------------*/
     
@@ -372,23 +368,10 @@ int calculate_position(int parameters_id,int chessboard_mem_id,int chessboard_se
     
                 /* To avoid the creation of a new fake row between a step */
     /* -------------------------------------------------------------------------------- */
-
-    while((perfect_matrix_rows - 1) * y_step + init_y >= rows && init_y > 0){
-        
-        init_y -= 1;    
-    }
-    while((perfect_matrix_rows - 1) * y_step + init_y >= rows && y_step > 0){
-        
-        y_step -= 1;    
-    }
-    while((perfect_matrix_columns - 1) * x_step + init_x >= columns && init_x > 0){
-        
-        init_x -= 1;
-    }
-    while((perfect_matrix_columns - 1) * x_step + init_x >= columns && x_step > 0){
-    
-        x_step -= 1;
-    }
+    while((perfect_matrix_rows - 1) * y_step + init_y >= rows && init_y > 0) init_y -= 1;
+    while((perfect_matrix_rows - 1) * y_step + init_y >= rows && y_step > 0) y_step -= 1;    
+    while((perfect_matrix_columns - 1) * x_step + init_x >= columns && init_x > 0) init_x -= 1;
+    while((perfect_matrix_columns - 1) * x_step + init_x >= columns && x_step > 0) x_step -= 1;
     /* -------------------------------------------------------------------------------- */
 
     for(i=0; i<perfect_matrix_rows; i++){

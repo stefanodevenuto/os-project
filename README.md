@@ -49,7 +49,7 @@ The Synchronization is made up by different steps:
 The mechanism is schematized in the image below:
 <br>
 
-![Critical Section](Positioning.png)
+![Critical Section](./img/Positioning.png)
 
 In the critical section, a player peek a valid position in the chessboard by taking it in the Positions Shared Memory, every time it's his turn, and send that with the first Message Queue to the Pawns.
 Then, he forks the pawns, and wait for 0 on the semaphore he set.
